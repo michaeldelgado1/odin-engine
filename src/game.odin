@@ -28,15 +28,24 @@ created.
 package game
 
 import "core:fmt"
-import "core:math/linalg"
 import rl "vendor:raylib"
 
 PIXEL_WINDOW_HEIGHT :: 180
 
+OverlayType :: enum int {
+  NoOverlay,
+  ExitOverlay,
+  // OverlayCount?
+}
+
+EditorState :: struct {
+  expectedHash: string,
+  currentOverlay: OverlayType,
+}
+
 Game_Memory :: struct {
-	player_pos: rl.Vector2,
-	player_texture: rl.Texture,
 	some_number: int,
+  editorState: EditorState,
 	run: bool,
 }
 
@@ -48,7 +57,6 @@ game_camera :: proc() -> rl.Camera2D {
 
 	return {
 		zoom = h/PIXEL_WINDOW_HEIGHT,
-		target = g.player_pos,
 		offset = { w/2, h/2 },
 	}
 }
@@ -60,50 +68,63 @@ ui_camera :: proc() -> rl.Camera2D {
 }
 
 update :: proc() {
-	input: rl.Vector2
-
-	if rl.IsKeyDown(.UP) || rl.IsKeyDown(.W) {
-		input.y -= 1
-	}
-	if rl.IsKeyDown(.DOWN) || rl.IsKeyDown(.S) {
-		input.y += 1
-	}
-	if rl.IsKeyDown(.LEFT) || rl.IsKeyDown(.A) {
-		input.x -= 1
-	}
-	if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) {
-		input.x += 1
-	}
-
-	input = linalg.normalize0(input)
-	g.player_pos += input * rl.GetFrameTime() * 100
 	g.some_number += 1
 
 	if rl.IsKeyPressed(.ESCAPE) {
 		g.run = false
 	}
+
+  if rl.IsKeyPressed(.E) {
+    if g.editorState.currentOverlay == OverlayType.NoOverlay {
+      g.editorState.currentOverlay = .ExitOverlay
+    } else {
+      g.editorState.currentOverlay = .NoOverlay
+    }
+  }
 }
 
 draw :: proc() {
 	rl.BeginDrawing()
-	rl.ClearBackground(rl.BLUE)
+  {
+    rl.ClearBackground(rl.DARKGRAY)
 
-	rl.BeginMode2D(game_camera())
-	rl.DrawTextureEx(g.player_texture, g.player_pos, 0, 1, rl.WHITE)
-	rl.DrawRectangleV({20, 20}, {10, 10}, rl.RED)
-	rl.DrawRectangleV({-30, -20}, {10, 10}, rl.GREEN)
-	rl.EndMode2D()
+    rl.BeginMode2D(game_camera())
+    {
+      rl.DrawRectangleV({20, 20}, {10, 10}, rl.GREEN)
+      rl.DrawRectangleV({-30, -20}, {10, 10}, rl.GREEN)
+    }
+    rl.EndMode2D()
 
-	rl.BeginMode2D(ui_camera())
+    rl.BeginMode2D(ui_camera())
+    {
+      rl.DrawText(fmt.ctprintf("some_number: %v", g.some_number), 5, 5, 8, rl.WHITE)
+      rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 20, 8, rl.WHITE)
 
-	// NOTE: `fmt.ctprintf` uses the temp allocator. The temp allocator is
-	// cleared at the end of the frame by the main application, meaning inside
-	// `main_hot_reload.odin`, `main_release.odin` or `main_web_entry.odin`.
-	rl.DrawText(fmt.ctprintf("some_number: %v\nplayer_pos: %v", g.some_number, g.player_pos), 5, 5, 8, rl.WHITE)
-
-	rl.EndMode2D()
-
+      mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), ui_camera())
+      placementRect := centerRectToPoint(mousePos, { 10, 10})
+      rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
+    }
+    rl.EndMode2D()
+  }
 	rl.EndDrawing()
+}
+
+centerRectToPoint :: proc(point: rl.Vector2, rectDims: rl.Vector2) -> rl.Rectangle {
+	posOffset := rl.Vector2{
+		(rectDims.x / 2),
+		(rectDims.y / 2),
+	}
+	resultPos := rl.Vector2{
+		point.x - posOffset.x,
+		point.y - posOffset.y,
+	}
+
+	return {
+    resultPos.x,
+    resultPos.y,
+    rectDims.x,
+    rectDims.y,
+  }
 }
 
 @(export)
@@ -129,12 +150,11 @@ game_init :: proc() {
 	g = new(Game_Memory)
 
 	g^ = Game_Memory {
-		run = true,
 		some_number = 100,
-
-		// You can put textures, sounds and music in the `assets` folder. Those
-		// files will be part any release or web build.
-		player_texture = rl.LoadTexture("assets/round_cat.png"),
+    run = true,
+    editorState = {
+      currentOverlay = .ExitOverlay,
+    },
 	}
 
 	game_hot_reloaded(g)
