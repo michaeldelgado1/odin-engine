@@ -7,7 +7,7 @@ package main
 
 import "core:dynlib"
 import "core:fmt"
-import "core:c/libc"
+// import "core:c/libc"
 import "core:os"
 import "core:os/os2"
 import "core:log"
@@ -195,7 +195,7 @@ main :: proc() {
 			// This prevents the game from closing without you seeing the bad
 			// frees. This is mostly needed because I use Sublime Text and my game's
 			// console isn't hooked up into Sublime's console properly.
-			libc.getchar()
+			// libc.getchar()
 			panic("Bad free detected")
 		}
 	}
@@ -206,7 +206,7 @@ main :: proc() {
 		// This prevents the game from closing without you seeing the memory
 		// leaks. This is mostly needed because I use Sublime Text and my game's
 		// console isn't hooked up into Sublime's console properly.
-		libc.getchar()
+		// libc.getchar()
 	}
 
 	for &g in old_game_apis {

@@ -29,6 +29,9 @@ package game
 
 import "core:fmt"
 import rl "vendor:raylib"
+import vmem "core:mem/virtual"
+import "core:encoding/json"
+import "core:os"
 
 PIXEL_WINDOW_HEIGHT :: 180
 
@@ -47,17 +50,21 @@ Game_Memory :: struct {
 	some_number: int,
   editorState: EditorState,
 	run: bool,
+  rects: [dynamic]rl.Rectangle,
+  gameArena: vmem.Arena,
+  uiCam: rl.Camera2D,
+  gameCam: rl.Camera2D,
 }
 
 g: ^Game_Memory
 
 game_camera :: proc() -> rl.Camera2D {
-	w := f32(rl.GetScreenWidth())
+	// w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
 
 	return {
 		zoom = h/PIXEL_WINDOW_HEIGHT,
-		offset = { w/2, h/2 },
+		// offset = { w/2, h/2 },
 	}
 }
 
@@ -67,6 +74,11 @@ ui_camera :: proc() -> rl.Camera2D {
 	}
 }
 
+rectDims := rl.Vector2 {
+  22, 15,
+}
+
+
 update :: proc() {
 	g.some_number += 1
 
@@ -75,34 +87,60 @@ update :: proc() {
 	}
 
   if rl.IsKeyPressed(.E) {
-    if g.editorState.currentOverlay == OverlayType.NoOverlay {
+    switch g.editorState.currentOverlay {
+    case .NoOverlay:
       g.editorState.currentOverlay = .ExitOverlay
-    } else {
+    case .ExitOverlay:
       g.editorState.currentOverlay = .NoOverlay
+    }
+  }
+
+  mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), g.uiCam)
+
+  if rl.IsMouseButtonPressed(.LEFT) {
+    append(&g.rects, centerRectToPoint(mousePos, rectDims))
+  }
+
+	if rl.IsKeyPressed(.S) {
+    settingsData, _ := json.marshal(g.rects, allocator = context.temp_allocator)
+    if !os.write_entire_file("settings.json", settingsData) {
+      fmt.println("Couldn't write file!")
     }
   }
 }
 
+drawDebugTest :: proc() {
+  rl.DrawText(fmt.ctprintf("some_number: %v", g.some_number), 5, 5, 8, rl.WHITE)
+  rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 20, 8, rl.WHITE)
+}
+
+drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
+  mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), uiCamera)
+  placementRect := centerRectToPoint(mousePos, rectDims)
+  rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
+}
+
 draw :: proc() {
+  g.uiCam= ui_camera()
+  g.gameCam= game_camera()
 	rl.BeginDrawing()
   {
     rl.ClearBackground(rl.DARKGRAY)
 
-    rl.BeginMode2D(game_camera())
+    rl.BeginMode2D(g.gameCam)
     {
-      rl.DrawRectangleV({20, 20}, {10, 10}, rl.GREEN)
-      rl.DrawRectangleV({-30, -20}, {10, 10}, rl.GREEN)
+      for rect in g.rects {
+        rl.DrawRectangleRec(rect, rl.GREEN)
+      }
     }
     rl.EndMode2D()
 
-    rl.BeginMode2D(ui_camera())
+    rl.BeginMode2D(g.uiCam)
     {
-      rl.DrawText(fmt.ctprintf("some_number: %v", g.some_number), 5, 5, 8, rl.WHITE)
-      rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 20, 8, rl.WHITE)
 
-      mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), ui_camera())
-      placementRect := centerRectToPoint(mousePos, { 10, 10})
-      rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
+      drawDebugTest()
+
+      drawPlacementRect(g.uiCam)
     }
     rl.EndMode2D()
   }
@@ -124,6 +162,15 @@ centerRectToPoint :: proc(point: rl.Vector2, rectDims: rl.Vector2) -> rl.Rectang
     resultPos.y,
     rectDims.x,
     rectDims.y,
+  }
+}
+
+rectFromPosAndDims :: proc(pos: rl.Vector2, dims: rl.Vector2) -> rl.Rectangle {
+  return {
+    pos.x,
+    pos.y,
+    dims.x,
+    dims.y,
   }
 }
 
@@ -156,6 +203,23 @@ game_init :: proc() {
       currentOverlay = .ExitOverlay,
     },
 	}
+
+  gameArena : vmem.Arena
+  allocator := vmem.arena_allocator(&gameArena)
+
+  g.gameArena = gameArena
+
+  settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
+  tempArr : []rl.Rectangle
+  err := json.unmarshal(settingsData, &tempArr, allocator = context.temp_allocator)
+  if err != nil {
+    fmt.println(err)
+  }
+  
+  g.rects = make([dynamic]rl.Rectangle, 0, allocator)
+  for rect in tempArr {
+    append(&g.rects, rect)
+  }
 
 	game_hot_reloaded(g)
 }
