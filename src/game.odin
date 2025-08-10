@@ -63,7 +63,11 @@ update :: proc() {
   mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), g.uiCam)
 
   if rl.IsKeyPressed(.ESCAPE) {
-    g.run = false
+    if g.editorState.currentOverlay != .NoOverlay {
+      g.editorState.currentOverlay = .NoOverlay
+    } else {
+      g.run = false
+    }
   }
 
   if rl.IsKeyPressed(.E) {
@@ -75,17 +79,26 @@ update :: proc() {
     }
   }
 
-
   if rl.IsMouseButtonPressed(.LEFT) {
-    append(&g.rects, centerRectToPoint(mousePos, rectDims))
+    switch g.editorState.currentOverlay {
+    case .NoOverlay:
+      append(&g.rects, centerRectToPoint(mousePos, rectDims))
+    case .ExitOverlay:
+      fmt.println("We're in exit Mode")
+    }
   }
 
   if rl.IsMouseButtonPressed(.RIGHT) {
-    for idx in 0..<len(g.rects) {
-      if rl.CheckCollisionPointRec(mousePos, g.rects[idx]) {
-        unordered_remove(&g.rects, idx)
-        break
+    switch g.editorState.currentOverlay {
+    case .NoOverlay:
+      for idx in 0..<len(g.rects) {
+        if rl.CheckCollisionPointRec(mousePos, g.rects[idx]) {
+          unordered_remove(&g.rects, idx)
+          break
+        }
       }
+    case .ExitOverlay:
+      fmt.println("We're in exit Mode")
     }
   }
 
@@ -136,7 +149,9 @@ draw :: proc() {
 
       drawDebugTest()
 
-      drawPlacementRect(g.uiCam)
+      if g.editorState.currentOverlay == .NoOverlay {
+        drawPlacementRect(g.uiCam)
+      }
     }
     rl.EndMode2D()
   }
