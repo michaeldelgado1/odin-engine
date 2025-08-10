@@ -36,24 +36,24 @@ import "core:os"
 PIXEL_WINDOW_HEIGHT :: 180
 
 OverlayType :: enum int {
-  NoOverlay,
-  ExitOverlay,
-  // OverlayCount?
+	NoOverlay,
+	ExitOverlay,
+	// OverlayCount?
 }
 
 EditorState :: struct {
-  expectedHash: string,
-  currentOverlay: OverlayType,
+	expectedHash: string,
+	currentOverlay: OverlayType,
 }
 
 Game_Memory :: struct {
 	some_number: int,
-  editorState: EditorState,
+	editorState: EditorState,
 	run: bool,
-  rects: [dynamic]rl.Rectangle,
-  gameArena: vmem.Arena,
-  uiCam: rl.Camera2D,
-  gameCam: rl.Camera2D,
+	rects: [dynamic]rl.Rectangle,
+	gameArena: vmem.Arena,
+	uiCam: rl.Camera2D,
+	gameCam: rl.Camera2D,
 }
 
 g: ^Game_Memory
@@ -73,7 +73,7 @@ ui_camera :: proc() -> rl.Camera2D {
 }
 
 rectDims := rl.Vector2 {
-  22, 15,
+	22, 15,
 }
 
 
@@ -84,69 +84,69 @@ update :: proc() {
 		g.run = false
 	}
 
-  if rl.IsKeyPressed(.E) {
-    switch g.editorState.currentOverlay {
-    case .NoOverlay:
-      g.editorState.currentOverlay = .ExitOverlay
-    case .ExitOverlay:
-      g.editorState.currentOverlay = .NoOverlay
-    }
-  }
+	if rl.IsKeyPressed(.E) {
+		switch g.editorState.currentOverlay {
+		case .NoOverlay:
+			g.editorState.currentOverlay = .ExitOverlay
+		case .ExitOverlay:
+			g.editorState.currentOverlay = .NoOverlay
+		}
+	}
 
-  mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), g.uiCam)
+	mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), g.uiCam)
 
-  if rl.IsMouseButtonPressed(.LEFT) {
-    append(&g.rects, centerRectToPoint(mousePos, rectDims))
-  }
+	if rl.IsMouseButtonPressed(.LEFT) {
+		append(&g.rects, centerRectToPoint(mousePos, rectDims))
+	}
 
 	if rl.IsKeyPressed(.S) {
-    settingsData, _ := json.marshal(g.rects, allocator = context.temp_allocator)
-    if !os.write_entire_file("settings.json", settingsData) {
-      fmt.println("Couldn't write file!")
-    }
-  }
+		settingsData, _ := json.marshal(g.rects, allocator = context.temp_allocator)
+		if !os.write_entire_file("settings.json", settingsData) {
+			fmt.println("Couldn't write file!")
+		}
+	}
 
 	if rl.IsKeyPressed(.R) {
-    allocator := vmem.arena_allocator(&g.gameArena)
-    loadSettings(allocator)
-  }
+		allocator := vmem.arena_allocator(&g.gameArena)
+		loadSettings(allocator)
+	}
 }
 
 drawDebugTest :: proc() {
-  rl.DrawText(fmt.ctprintf("some_number: %v", g.some_number), 5, 5, 8, rl.WHITE)
-  rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 20, 8, rl.WHITE)
+	rl.DrawText(fmt.ctprintf("some_number: %v", g.some_number), 5, 5, 8, rl.WHITE)
+	rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 20, 8, rl.WHITE)
 }
 
 drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
-  mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), uiCamera)
-  placementRect := centerRectToPoint(mousePos, rectDims)
-  rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
+	mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), uiCamera)
+	placementRect := centerRectToPoint(mousePos, rectDims)
+	rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
 }
 
 draw :: proc() {
-  g.uiCam= ui_camera()
-  g.gameCam= game_camera()
+	g.uiCam= ui_camera()
+	g.gameCam= game_camera()
 	rl.BeginDrawing()
-  {
-    rl.ClearBackground(rl.DARKGRAY)
+	{
+		rl.ClearBackground(rl.DARKGRAY)
 
-    rl.BeginMode2D(g.gameCam)
-    {
-      for rect in g.rects {
-        rl.DrawRectangleRec(rect, rl.GREEN)
-      }
-    }
-    rl.EndMode2D()
+		rl.BeginMode2D(g.gameCam)
+		{
+			for rect in g.rects {
+				rl.DrawRectangleRec(rect, rl.GREEN)
+			}
+		}
+		rl.EndMode2D()
 
-    rl.BeginMode2D(g.uiCam)
-    {
+		rl.BeginMode2D(g.uiCam)
+		{
 
-      drawDebugTest()
+			drawDebugTest()
 
-      drawPlacementRect(g.uiCam)
-    }
-    rl.EndMode2D()
-  }
+			drawPlacementRect(g.uiCam)
+		}
+		rl.EndMode2D()
+	}
 	rl.EndDrawing()
 }
 
@@ -161,20 +161,20 @@ centerRectToPoint :: proc(point: rl.Vector2, rectDims: rl.Vector2) -> rl.Rectang
 	}
 
 	return {
-    resultPos.x,
-    resultPos.y,
-    rectDims.x,
-    rectDims.y,
-  }
+		resultPos.x,
+		resultPos.y,
+		rectDims.x,
+		rectDims.y,
+	}
 }
 
 rectFromPosAndDims :: proc(pos: rl.Vector2, dims: rl.Vector2) -> rl.Rectangle {
-  return {
-    pos.x,
-    pos.y,
-    dims.x,
-    dims.y,
-  }
+	return {
+		pos.x,
+		pos.y,
+		dims.x,
+		dims.y,
+	}
 }
 
 @(export)
@@ -201,33 +201,33 @@ game_init :: proc() {
 
 	g^ = Game_Memory {
 		some_number = 100,
-    run = true,
-    editorState = {
-      currentOverlay = .NoOverlay,
-    },
+		run = true,
+		editorState = {
+			currentOverlay = .NoOverlay,
+		},
 	}
 
-  gameArena : vmem.Arena
-  allocator := vmem.arena_allocator(&gameArena)
+	gameArena : vmem.Arena
+	allocator := vmem.arena_allocator(&gameArena)
 
-  loadSettings(allocator)
+	loadSettings(allocator)
 
-  g.gameArena = gameArena
+	g.gameArena = gameArena
 	game_hot_reloaded(g)
 }
 
 loadSettings :: proc(allocator := context.allocator) {
-  settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
-  tempArr : []rl.Rectangle
-  err := json.unmarshal(settingsData, &tempArr, allocator = context.temp_allocator)
-  if err != nil {
-    fmt.println(err)
-  }
-  
-  g.rects = make([dynamic]rl.Rectangle, 0, allocator)
-  for rect in tempArr {
-    append(&g.rects, rect)
-  }
+	settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
+	tempArr : []rl.Rectangle
+	err := json.unmarshal(settingsData, &tempArr, allocator = context.temp_allocator)
+	if err != nil {
+		fmt.println(err)
+	}
+	
+	g.rects = make([dynamic]rl.Rectangle, 0, allocator)
+	for rect in tempArr {
+		append(&g.rects, rect)
+	}
 }
 
 @(export)
