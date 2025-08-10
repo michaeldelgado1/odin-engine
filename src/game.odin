@@ -109,10 +109,10 @@ update :: proc() {
     monWidth := rl.GetMonitorWidth(0)
     monHeight := rl.GetMonitorHeight(0)
 
-    w := monWidth - winWidth
-    h := monHeight - winHeight
+    x := monWidth - winWidth
+    y := monHeight - winHeight
 
-    rl.SetWindowPosition((w/2), (h/2))
+    rl.SetWindowPosition((x/2), (y/2))
   }
 }
 
@@ -214,15 +214,15 @@ game_init_window :: proc() {
 
   winWidth := rl.GetScreenWidth()
   monWidth := rl.GetMonitorWidth(0)
-  w := monWidth - winWidth
-  h : i32 = 0
+  x := monWidth - winWidth
+  y : i32 = 0
 
   when ODIN_OS == .Windows{
     // NOTE: Windows doesn't take the bar height into consideration...
     h += 50
   }
 
-  rl.SetWindowPosition(w, h)
+  rl.SetWindowPosition(x, y)
   rl.SetTargetFPS(500)
   rl.SetExitKey(nil)
 }
