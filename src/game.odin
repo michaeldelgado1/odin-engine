@@ -100,6 +100,20 @@ update :: proc() {
     allocator := vmem.arena_allocator(&g.gameArena)
     loadSettings(allocator)
   }
+
+  if rl.IsKeyPressed(.C) {
+    // Center window on monitor
+    winWidth := rl.GetScreenWidth()
+    winHeight := rl.GetScreenHeight()
+
+    monWidth := rl.GetMonitorWidth(0)
+    monHeight := rl.GetMonitorHeight(0)
+
+    w := monWidth - winWidth
+    h := monHeight - winHeight
+
+    rl.SetWindowPosition((w/2), (h/2))
+  }
 }
 
 draw :: proc() {
@@ -197,7 +211,18 @@ game_update :: proc() {
 game_init_window :: proc() {
   rl.SetConfigFlags({ .WINDOW_RESIZABLE, .VSYNC_HINT, .WINDOW_TOPMOST })
   rl.InitWindow(854, 480, "Odin + Raylib + Hot Reload template!")
-  rl.SetWindowPosition(1200, 0)
+
+  winWidth := rl.GetScreenWidth()
+  monWidth := rl.GetMonitorWidth(0)
+  w := monWidth - winWidth
+  h : i32 = 0
+
+  when ODIN_OS == .Windows{
+    // NOTE: Windows doesn't take the bar height into consideration...
+    h += 50
+  }
+
+  rl.SetWindowPosition(w, h)
   rl.SetTargetFPS(500)
   rl.SetExitKey(nil)
 }
