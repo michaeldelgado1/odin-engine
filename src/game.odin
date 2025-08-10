@@ -219,7 +219,7 @@ game_init_window :: proc() {
 
   when ODIN_OS == .Windows{
     // NOTE: Windows doesn't take the bar height into consideration...
-    h += 50
+    y += 50
   }
 
   rl.SetWindowPosition(x, y)
