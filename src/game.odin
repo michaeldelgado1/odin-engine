@@ -32,6 +32,7 @@ import rl "vendor:raylib"
 import vmem "core:mem/virtual"
 import "core:encoding/json"
 import "core:os"
+// import sa "core:container/small_array"
 
 PIXEL_WINDOW_HEIGHT :: 180
 
@@ -47,7 +48,6 @@ EditorState :: struct {
 }
 
 Game_Memory :: struct {
-	some_number: int,
 	editorState: EditorState,
 	run: bool,
 	rects: [dynamic]rl.Rectangle,
@@ -78,7 +78,7 @@ rectDims := rl.Vector2 {
 
 
 update :: proc() {
-	g.some_number += 1
+	mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), g.uiCam)
 
 	if rl.IsKeyPressed(.ESCAPE) {
 		g.run = false
@@ -93,10 +93,18 @@ update :: proc() {
 		}
 	}
 
-	mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), g.uiCam)
 
 	if rl.IsMouseButtonPressed(.LEFT) {
 		append(&g.rects, centerRectToPoint(mousePos, rectDims))
+	}
+
+	if rl.IsMouseButtonPressed(.RIGHT) {
+    for idx in 0..<len(g.rects) {
+			if rl.CheckCollisionPointRec(mousePos, g.rects[idx]) {
+				unordered_remove(&g.rects, idx)
+				break
+			}
+		}
 	}
 
 	if rl.IsKeyPressed(.S) {
@@ -113,8 +121,7 @@ update :: proc() {
 }
 
 drawDebugTest :: proc() {
-	rl.DrawText(fmt.ctprintf("some_number: %v", g.some_number), 5, 5, 8, rl.WHITE)
-	rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 20, 8, rl.WHITE)
+	rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 5, 8, rl.WHITE)
 }
 
 drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
@@ -200,7 +207,6 @@ game_init :: proc() {
 	g = new(Game_Memory)
 
 	g^ = Game_Memory {
-		some_number = 100,
 		run = true,
 		editorState = {
 			currentOverlay = .NoOverlay,
