@@ -59,12 +59,10 @@ Game_Memory :: struct {
 g: ^Game_Memory
 
 game_camera :: proc() -> rl.Camera2D {
-	// w := f32(rl.GetScreenWidth())
 	h := f32(rl.GetScreenHeight())
 
 	return {
 		zoom = h/PIXEL_WINDOW_HEIGHT,
-		// offset = { w/2, h/2 },
 	}
 }
 
@@ -106,6 +104,11 @@ update :: proc() {
     if !os.write_entire_file("settings.json", settingsData) {
       fmt.println("Couldn't write file!")
     }
+  }
+
+	if rl.IsKeyPressed(.R) {
+    allocator := vmem.arena_allocator(&g.gameArena)
+    loadSettings(allocator)
   }
 }
 
@@ -179,7 +182,7 @@ game_update :: proc() {
 	update()
 	draw()
 
-	// Everything on tracking allocator is valid until end-of-frame.
+	// Everything on temp allocator is valid until end-of-frame.
 	free_all(context.temp_allocator)
 }
 
@@ -200,15 +203,20 @@ game_init :: proc() {
 		some_number = 100,
     run = true,
     editorState = {
-      currentOverlay = .ExitOverlay,
+      currentOverlay = .NoOverlay,
     },
 	}
 
   gameArena : vmem.Arena
   allocator := vmem.arena_allocator(&gameArena)
 
-  g.gameArena = gameArena
+  loadSettings(allocator)
 
+  g.gameArena = gameArena
+	game_hot_reloaded(g)
+}
+
+loadSettings :: proc(allocator := context.allocator) {
   settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
   tempArr : []rl.Rectangle
   err := json.unmarshal(settingsData, &tempArr, allocator = context.temp_allocator)
@@ -220,8 +228,6 @@ game_init :: proc() {
   for rect in tempArr {
     append(&g.rects, rect)
   }
-
-	game_hot_reloaded(g)
 }
 
 @(export)
