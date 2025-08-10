@@ -58,24 +58,6 @@ Game_Memory :: struct {
 
 g: ^Game_Memory
 
-game_camera :: proc() -> rl.Camera2D {
-	h := f32(rl.GetScreenHeight())
-
-	return {
-		zoom = h/PIXEL_WINDOW_HEIGHT,
-	}
-}
-
-ui_camera :: proc() -> rl.Camera2D {
-	return {
-		zoom = f32(rl.GetScreenHeight())/PIXEL_WINDOW_HEIGHT,
-	}
-}
-
-rectDims := rl.Vector2 {
-	22, 15,
-}
-
 
 update :: proc() {
 	mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), g.uiCam)
@@ -120,16 +102,6 @@ update :: proc() {
 	}
 }
 
-drawDebugTest :: proc() {
-	rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 5, 8, rl.WHITE)
-}
-
-drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
-	mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), uiCamera)
-	placementRect := centerRectToPoint(mousePos, rectDims)
-	rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
-}
-
 draw :: proc() {
 	g.uiCam= ui_camera()
 	g.gameCam= game_camera()
@@ -157,6 +129,16 @@ draw :: proc() {
 	rl.EndDrawing()
 }
 
+drawDebugTest :: proc() {
+	rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 5, 8, rl.WHITE)
+}
+
+drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
+	mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), uiCamera)
+	placementRect := centerRectToPoint(mousePos, rectDims)
+	rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
+}
+
 centerRectToPoint :: proc(point: rl.Vector2, rectDims: rl.Vector2) -> rl.Rectangle {
 	posOffset := rl.Vector2{
 		(rectDims.x / 2),
@@ -182,6 +164,24 @@ rectFromPosAndDims :: proc(pos: rl.Vector2, dims: rl.Vector2) -> rl.Rectangle {
 		dims.x,
 		dims.y,
 	}
+}
+
+game_camera :: proc() -> rl.Camera2D {
+	h := f32(rl.GetScreenHeight())
+
+	return {
+		zoom = h/PIXEL_WINDOW_HEIGHT,
+	}
+}
+
+ui_camera :: proc() -> rl.Camera2D {
+	return {
+		zoom = f32(rl.GetScreenHeight())/PIXEL_WINDOW_HEIGHT,
+	}
+}
+
+rectDims := rl.Vector2 {
+	22, 15,
 }
 
 @(export)
