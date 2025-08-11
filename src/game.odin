@@ -58,13 +58,16 @@ Game_Memory :: struct {
   gameArena: vmem.Arena,
   uiCam: rl.Camera2D,
   gameCam: rl.Camera2D,
+  screenMouse: rl.Vector2,
+  worldMouse: rl.Vector2,
 }
 
 g: ^Game_Memory
 
 
 update :: proc() {
-  mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), g.uiCam)
+  g.worldMouse = rl.GetMousePosition()
+  g.screenMouse = rl.GetScreenToWorld2D(g.worldMouse, g.uiCam)
 
   if rl.IsKeyPressed(.ESCAPE) {
     if g.editorState.currentOverlay != .NoOverlay {
@@ -86,7 +89,7 @@ update :: proc() {
   if rl.IsMouseButtonPressed(.LEFT) {
     switch g.editorState.currentOverlay {
     case .NoOverlay:
-      append(&g.rects, centerRectToPoint(mousePos, rectDims))
+      append(&g.rects, centerRectToPoint(g.screenMouse, rectDims))
     case .ExitOverlay:
       fmt.println("We're in exit Mode")
     }
@@ -96,7 +99,7 @@ update :: proc() {
     switch g.editorState.currentOverlay {
     case .NoOverlay:
       for idx in 0..<len(g.rects) {
-        if rl.CheckCollisionPointRec(mousePos, g.rects[idx]) {
+        if rl.CheckCollisionPointRec(g.screenMouse, g.rects[idx]) {
           unordered_remove(&g.rects, idx)
           break
         }
@@ -134,6 +137,7 @@ update :: proc() {
 }
 
 draw :: proc() {
+  // TODO: Do I want to calculate these at update?
   g.uiCam= ui_camera()
   g.gameCam= game_camera()
   rl.BeginDrawing()
@@ -150,12 +154,18 @@ draw :: proc() {
 
     rl.BeginMode2D(g.uiCam)
     {
+      switch g.editorState.currentOverlay {
+      case .NoOverlay:
+        drawPlacementRect(g.uiCam)
+      case .ExitOverlay:
+        winWidth := f32(rl.GetScreenWidth())
+        winHeight := f32(rl.GetScreenHeight())
+
+        color := rl.Fade(rl.BLUE, .75)
+        rl.DrawRectangleRec(rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), color)
+      }
 
       drawDebugTest()
-
-      if g.editorState.currentOverlay == .NoOverlay {
-        drawPlacementRect(g.uiCam)
-      }
     }
     rl.EndMode2D()
   }
@@ -167,8 +177,7 @@ drawDebugTest :: proc() {
 }
 
 drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
-  mousePos := rl.GetScreenToWorld2D(rl.GetMousePosition(), uiCamera)
-  placementRect := centerRectToPoint(mousePos, rectDims)
+  placementRect := centerRectToPoint(g.screenMouse, rectDims)
   rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
 }
 
@@ -283,7 +292,7 @@ loadSettings :: proc(allocator := context.allocator) {
   if err != nil {
     fmt.println(err)
   }
-  
+
   g.rects = make([dynamic]rl.Rectangle, 0, allocator)
   for rect in tempArr {
     append(&g.rects, rect)
