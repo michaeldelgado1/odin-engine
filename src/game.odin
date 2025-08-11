@@ -36,6 +36,10 @@ import "core:os"
 
 PIXEL_WINDOW_HEIGHT :: 180
 
+MAIN_MONITOR_NUMBER :: 0
+SECOND_MONITOR_NUMBER :: 1
+DUAL_MONITOR :: true
+
 OverlayType :: enum int {
   NoOverlay,
   ExitOverlay,
@@ -119,8 +123,8 @@ update :: proc() {
     winWidth := rl.GetScreenWidth()
     winHeight := rl.GetScreenHeight()
 
-    monWidth := rl.GetMonitorWidth(0)
-    monHeight := rl.GetMonitorHeight(0)
+    monWidth := rl.GetMonitorWidth(MAIN_MONITOR_NUMBER)
+    monHeight := rl.GetMonitorHeight(MAIN_MONITOR_NUMBER)
 
     x := monWidth - winWidth
     y := monHeight - winHeight
@@ -228,13 +232,23 @@ game_init_window :: proc() {
   rl.InitWindow(854, 480, "Odin + Raylib + Hot Reload template!")
 
   winWidth := rl.GetScreenWidth()
-  monWidth := rl.GetMonitorWidth(0)
-  x := monWidth - winWidth
+  monWidth := rl.GetMonitorWidth(MAIN_MONITOR_NUMBER)
+  fmt.println("Mon Width: ", monWidth)
+  x : i32 = monWidth - winWidth
   y : i32 = 0
 
   when ODIN_OS == .Windows{
     // NOTE: Windows doesn't take the bar height into consideration...
     y += 50
+  }
+
+  when DUAL_MONITOR {
+    // NOTE: When setting the window pos, it counts both monitors
+    //  I don't really have to do this check, because if there is no
+    //  second monitor, the width is 0.
+    secondMon := rl.GetMonitorWidth(SECOND_MONITOR_NUMBER)
+    fmt.println("Second Mon Width: ", secondMon)
+    x += secondMon
   }
 
   rl.SetWindowPosition(x, y)
