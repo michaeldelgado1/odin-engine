@@ -32,7 +32,6 @@ import rl "vendor:raylib"
 import vmem "core:mem/virtual"
 import "core:encoding/json"
 import "core:os"
-// import sa "core:container/small_array"
 
 PIXEL_WINDOW_HEIGHT :: 180
 
@@ -51,8 +50,19 @@ EditorState :: struct {
   currentOverlay: OverlayType,
 }
 
+Button :: struct {
+  pos: rl.Rectangle,
+  label: string,
+  onClick: proc(),
+}
+
+OverlayState :: struct {
+  buttons: [dynamic]Button,
+}
+
 Game_Memory :: struct {
   editorState: EditorState,
+  exitOverlayState: OverlayState,
   run: bool,
   rects: [dynamic]rl.Rectangle,
   gameArena: vmem.Arena,
@@ -73,6 +83,12 @@ exitOverlayUpdate :: proc() {
     g.editorState.currentOverlay = .NoOverlay
   }
 
+  if rl.IsKeyPressed(.T) {
+    for button in g.exitOverlayState.buttons {
+      button.onClick()
+    }
+  }
+
   if rl.IsMouseButtonPressed(.RIGHT) {
     fmt.println("We're in exit Mode")
   }
@@ -80,6 +96,10 @@ exitOverlayUpdate :: proc() {
   if rl.IsMouseButtonPressed(.LEFT) {
     fmt.println("We're in exit Mode")
   }
+
+  // g.exitOverlayState.buttons[1].pos.x = 200 / g.uiCam.zoom
+
+  evenSpaceHorizontal(g.exitOverlayState.buttons, f32(rl.GetScreenWidth()), g.uiCam.zoom)
 }
 
 noOverlayUpdate :: proc() {
@@ -170,11 +190,7 @@ draw :: proc() {
       case .NoOverlay:
         drawPlacementRect(g.uiCam)
       case .ExitOverlay:
-        winWidth := f32(rl.GetScreenWidth())
-        winHeight := f32(rl.GetScreenHeight())
-
-        color := rl.Fade(rl.BLUE, .75)
-        rl.DrawRectangleRec(rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), color)
+        drawExitOverlay()
       }
 
       drawDebugHud()
@@ -192,6 +208,18 @@ drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
   placementRect := centerRectToPoint(g.screenMouse, rectDims)
   rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
 }
+
+drawExitOverlay :: proc() {
+  winWidth := f32(rl.GetScreenWidth())
+  winHeight := f32(rl.GetScreenHeight())
+  bgColor := rl.Fade(rl.BLUE, .75)
+  rl.DrawRectangleRec(rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), bgColor)
+
+  for button in g.exitOverlayState.buttons {
+    rl.DrawRectangleRec(button.pos, rl.GRAY)
+  }
+}
+
 
 centerRectToPoint :: proc(point: rl.Vector2, rectDims: rl.Vector2) -> rl.Rectangle {
   posOffset := rl.Vector2{
@@ -231,6 +259,71 @@ loadSettings :: proc(allocator := context.allocator) {
   g.rects = make([dynamic]rl.Rectangle, 0, allocator)
   for rect in tempArr {
     append(&g.rects, rect)
+  }
+}
+
+createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
+  yesButton : Button = {
+    pos = { y = 30, width = 30, height = 20 },
+    label = "Yes",
+    onClick = proc() {
+      fmt.println("Yes Button Worked!")
+    },
+  }
+
+  noButton : Button = {
+    pos = { y = 30, width = 30, height = 20 },
+    label = "No",
+    onClick = proc() {
+      fmt.println("No Button Worked!")
+    },
+  }
+
+  maybeButton : Button = {
+    pos = { y = 30, width = 30, height = 20 },
+    label = "No",
+    onClick = proc() {
+      fmt.println("No Button Worked!")
+    },
+  }
+
+  lastButton : Button = {
+    pos = { y = 30, width = 30, height = 20 },
+    label = "No",
+    onClick = proc() {
+      fmt.println("No Button Worked!")
+    },
+  }
+
+  buttons := make([dynamic]Button, 0, allocator)
+  append(&buttons, yesButton)
+  append(&buttons, noButton)
+  append(&buttons, maybeButton)
+  append(&buttons, lastButton)
+
+  return buttons
+}
+
+evenSpaceHorizontal :: proc(buttons: [dynamic]Button, width: f32, scale: f32) {
+  scaledWidth := width / scale
+  totalButtonSizes : f32
+
+  for button in buttons {
+    totalButtonSizes += (button.pos.width)
+  }
+
+  leftoverSpace := scaledWidth - totalButtonSizes
+  spaceBetween := leftoverSpace / f32(len(buttons) + 1)
+
+  for idx in 0..<len(buttons) {
+    acrossButton : f32
+    prevPos : f32
+    prevIndex := idx - 1
+    if prevIndex >= 0 {
+      acrossButton = (buttons[prevIndex].pos.width)
+      prevPos = buttons[prevIndex].pos.x
+    }
+    buttons[idx].pos.x = spaceBetween + prevPos + acrossButton
   }
 }
 
@@ -293,6 +386,9 @@ game_init :: proc() {
   allocator := vmem.arena_allocator(&gameArena)
 
   loadSettings(allocator)
+
+  g.exitOverlayState.buttons = createExitButtons(allocator)
+
 
   g.gameArena = gameArena
   game_hot_reloaded(g)
