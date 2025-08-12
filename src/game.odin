@@ -64,48 +64,35 @@ Game_Memory :: struct {
 
 g: ^Game_Memory
 
-
-update :: proc() {
-  g.worldMouse = rl.GetMousePosition()
-  g.screenMouse = rl.GetScreenToWorld2D(g.worldMouse, g.uiCam)
-
-  if rl.IsKeyPressed(.ESCAPE) {
-    if g.editorState.currentOverlay != .NoOverlay {
-      g.editorState.currentOverlay = .NoOverlay
-    } else {
-      g.run = false
-    }
-  }
-
+exitOverlayUpdate :: proc() {
   if rl.IsKeyPressed(.E) {
-    switch g.editorState.currentOverlay {
-    case .NoOverlay:
-      g.editorState.currentOverlay = .ExitOverlay
-    case .ExitOverlay:
-      g.editorState.currentOverlay = .NoOverlay
-    }
-  }
-
-  if rl.IsMouseButtonPressed(.LEFT) {
-    switch g.editorState.currentOverlay {
-    case .NoOverlay:
-      append(&g.rects, centerRectToPoint(g.screenMouse, rectDims))
-    case .ExitOverlay:
-      fmt.println("We're in exit Mode")
-    }
+    g.editorState.currentOverlay = .NoOverlay
   }
 
   if rl.IsMouseButtonPressed(.RIGHT) {
-    switch g.editorState.currentOverlay {
-    case .NoOverlay:
-      for idx in 0..<len(g.rects) {
-        if rl.CheckCollisionPointRec(g.screenMouse, g.rects[idx]) {
-          unordered_remove(&g.rects, idx)
-          break
-        }
+    fmt.println("We're in exit Mode")
+  }
+
+  if rl.IsMouseButtonPressed(.LEFT) {
+    fmt.println("We're in exit Mode")
+  }
+}
+
+noOverlayUpdate :: proc() {
+  if rl.IsKeyPressed(.E) {
+    g.editorState.currentOverlay = .ExitOverlay
+  }
+
+  if rl.IsMouseButtonPressed(.LEFT) {
+      append(&g.rects, centerRectToPoint(g.screenMouse, rectDims))
+  }
+
+  if rl.IsMouseButtonPressed(.RIGHT) {
+    for idx in 0..<len(g.rects) {
+      if rl.CheckCollisionPointRec(g.screenMouse, g.rects[idx]) {
+        unordered_remove(&g.rects, idx)
+        break
       }
-    case .ExitOverlay:
-      fmt.println("We're in exit Mode")
     }
   }
 
@@ -136,10 +123,31 @@ update :: proc() {
   }
 }
 
-draw :: proc() {
-  // TODO: Do I want to calculate these at update?
+update :: proc() {
   g.uiCam= ui_camera()
   g.gameCam= game_camera()
+  g.worldMouse = rl.GetMousePosition()
+  g.screenMouse = rl.GetScreenToWorld2D(g.worldMouse, g.uiCam)
+
+  // NOTE: This is useful to escape out of all overlays, so don't
+  //  put this in a particular update function
+  if rl.IsKeyPressed(.ESCAPE) {
+    if g.editorState.currentOverlay != .NoOverlay {
+      g.editorState.currentOverlay = .NoOverlay
+    } else {
+      g.run = false
+    }
+  }
+
+  switch g.editorState.currentOverlay {
+  case .NoOverlay:
+    noOverlayUpdate()
+  case .ExitOverlay:
+    exitOverlayUpdate()
+  }
+}
+
+draw :: proc() {
   rl.BeginDrawing()
   {
     rl.ClearBackground(rl.DARKGRAY)
