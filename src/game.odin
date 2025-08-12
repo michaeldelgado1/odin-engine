@@ -234,13 +234,18 @@ rectDims := rl.Vector2 {
   22, 15,
 }
 
-@(export)
-game_update :: proc() {
-  update()
-  draw()
+loadSettings :: proc(allocator := context.allocator) {
+  settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
+  tempArr : []rl.Rectangle
+  err := json.unmarshal(settingsData, &tempArr, allocator = context.temp_allocator)
+  if err != nil {
+    fmt.println(err)
+  }
 
-  // Everything on temp allocator is valid until end-of-frame.
-  free_all(context.temp_allocator)
+  g.rects = make([dynamic]rl.Rectangle, 0, allocator)
+  for rect in tempArr {
+    append(&g.rects, rect)
+  }
 }
 
 @(export)
@@ -293,18 +298,13 @@ game_init :: proc() {
   game_hot_reloaded(g)
 }
 
-loadSettings :: proc(allocator := context.allocator) {
-  settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
-  tempArr : []rl.Rectangle
-  err := json.unmarshal(settingsData, &tempArr, allocator = context.temp_allocator)
-  if err != nil {
-    fmt.println(err)
-  }
+@(export)
+game_update :: proc() {
+  update()
+  draw()
 
-  g.rects = make([dynamic]rl.Rectangle, 0, allocator)
-  for rect in tempArr {
-    append(&g.rects, rect)
-  }
+  // Everything on temp allocator is valid until end-of-frame.
+  free_all(context.temp_allocator)
 }
 
 @(export)
