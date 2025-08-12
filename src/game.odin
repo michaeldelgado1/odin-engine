@@ -64,6 +64,10 @@ Game_Memory :: struct {
 
 g: ^Game_Memory
 
+rectDims := rl.Vector2 {
+  22, 15,
+}
+
 exitOverlayUpdate :: proc() {
   if rl.IsKeyPressed(.E) {
     g.editorState.currentOverlay = .NoOverlay
@@ -173,14 +177,14 @@ draw :: proc() {
         rl.DrawRectangleRec(rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), color)
       }
 
-      drawDebugTest()
+      drawDebugHud()
     }
     rl.EndMode2D()
   }
   rl.EndDrawing()
 }
 
-drawDebugTest :: proc() {
+drawDebugHud :: proc() {
   rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 5, 8, rl.WHITE)
 }
 
@@ -216,24 +220,6 @@ rectFromPosAndDims :: proc(pos: rl.Vector2, dims: rl.Vector2) -> rl.Rectangle {
   }
 }
 
-game_camera :: proc() -> rl.Camera2D {
-  h := f32(rl.GetScreenHeight())
-
-  return {
-    zoom = h/PIXEL_WINDOW_HEIGHT,
-  }
-}
-
-ui_camera :: proc() -> rl.Camera2D {
-  return {
-    zoom = f32(rl.GetScreenHeight())/PIXEL_WINDOW_HEIGHT,
-  }
-}
-
-rectDims := rl.Vector2 {
-  22, 15,
-}
-
 loadSettings :: proc(allocator := context.allocator) {
   settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
   tempArr : []rl.Rectangle
@@ -245,6 +231,20 @@ loadSettings :: proc(allocator := context.allocator) {
   g.rects = make([dynamic]rl.Rectangle, 0, allocator)
   for rect in tempArr {
     append(&g.rects, rect)
+  }
+}
+
+game_camera :: proc() -> rl.Camera2D {
+  h := f32(rl.GetScreenHeight())
+
+  return {
+    zoom = h/PIXEL_WINDOW_HEIGHT,
+  }
+}
+
+ui_camera :: proc() -> rl.Camera2D {
+  return {
+    zoom = f32(rl.GetScreenHeight())/PIXEL_WINDOW_HEIGHT,
   }
 }
 
