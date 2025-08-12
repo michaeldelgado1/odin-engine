@@ -52,7 +52,10 @@ EditorState :: struct {
 
 Button :: struct {
   pos: rl.Rectangle,
-  label: string,
+  // TODO: Figure out if making this a
+  //  cstring is worse than allocating every
+  //  frame on the exit screen
+  label: cstring,
   onClick: proc(),
 }
 
@@ -90,11 +93,15 @@ exitOverlayUpdate :: proc() {
   }
 
   if rl.IsMouseButtonPressed(.RIGHT) {
-    fmt.println("We're in exit Mode")
+    fmt.println("Right Clicked in exit mode")
   }
 
   if rl.IsMouseButtonPressed(.LEFT) {
-    fmt.println("We're in exit Mode")
+    for button in g.exitOverlayState.buttons {
+      if rl.CheckCollisionPointRec(g.screenMouse, button.pos) {
+        button.onClick()
+      }
+    }
   }
 
   // g.exitOverlayState.buttons[1].pos.x = 200 / g.uiCam.zoom
@@ -217,6 +224,7 @@ drawExitOverlay :: proc() {
 
   for button in g.exitOverlayState.buttons {
     rl.DrawRectangleRec(button.pos, rl.GRAY)
+    rl.DrawText(button.label, i32(button.pos.x), i32(button.pos.y), 15, rl.BLACK)
   }
 }
 
@@ -281,17 +289,17 @@ createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
 
   maybeButton : Button = {
     pos = { y = 30, width = 30, height = 20 },
-    label = "No",
+    label = "Maybe",
     onClick = proc() {
-      fmt.println("No Button Worked!")
+      fmt.println("Maybe Button Worked!")
     },
   }
 
   lastButton : Button = {
     pos = { y = 30, width = 30, height = 20 },
-    label = "No",
+    label = "Last",
     onClick = proc() {
-      fmt.println("No Button Worked!")
+      fmt.println("Last Button Worked!")
     },
   }
 
