@@ -64,7 +64,14 @@ Button :: struct {
   onClick: proc(),
 }
 
+OverlayHeading :: struct {
+  pos: rl.Vector2,
+  text: cstring,
+  fontSize: i32,
+}
+
 OverlayState :: struct {
+  heading: OverlayHeading,
   buttons: [dynamic]Button,
 }
 
@@ -224,6 +231,8 @@ drawExitOverlay :: proc() {
   bgColor := rl.Fade(rl.BLUE, .75)
   rl.DrawRectangleRec(rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), bgColor)
 
+  rl.DrawText(g.exitOverlayState.heading.text, i32(g.exitOverlayState.heading.pos.x), i32(g.exitOverlayState.heading.pos.y), g.exitOverlayState.heading.fontSize, rl.WHITE)
+
   for button in g.exitOverlayState.buttons {
     rl.DrawRectangleRec(button.pos, button.currentColor)
     rl.DrawText(button.label, i32(button.pos.x) + ButtonPadding, i32(button.pos.y) + ButtonPadding, 12, button.textColor)
@@ -275,8 +284,10 @@ loadSettings :: proc(allocator := context.allocator) {
 ButtonPadding :: 5
 createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
   doublePad : f32 = ButtonPadding * 2
+  buttonY : f32 = g.exitOverlayState.heading.pos.y + 40
+
   yesButton : Button = {
-    pos = { y = 30, height = 20 },
+    pos = { y = buttonY, height = 20 },
     label = "Yes",
     onClick = proc() {
       fmt.println("Yes Button Worked!")
@@ -285,34 +296,16 @@ createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
 
 
   noButton : Button = {
-    pos = { y = 30, width = 30, height = 20 },
+    pos = { y = buttonY, height = 20 },
     label = "No",
     onClick = proc() {
-      fmt.println("No Button Worked!")
-    },
-  }
-
-  maybeButton : Button = {
-    pos = { y = 30, width = 30, height = 20 },
-    label = "Maybe",
-    onClick = proc() {
-      fmt.println("Maybe Button Worked!")
-    },
-  }
-
-  lastButton : Button = {
-    pos = { y = 30, width = 30, height = 20 },
-    label = "Last",
-    onClick = proc() {
-      fmt.println("Last Button Worked!")
+      g.editorState.currentOverlay = .NoOverlay
     },
   }
 
   buttons := make([dynamic]Button, 0, allocator)
   append(&buttons, yesButton)
   append(&buttons, noButton)
-  append(&buttons, maybeButton)
-  append(&buttons, lastButton)
 
   // TODO: Calculate button height too
   for &button in buttons {
@@ -403,6 +396,13 @@ game_init :: proc() {
     run = true,
     editorState = {
       currentOverlay = .NoOverlay,
+    },
+    exitOverlayState = {
+      heading = {
+        pos = { 30, 30 },
+        text = "Are you sure you want to exit?",
+        fontSize = 17,
+      },
     },
   }
 
