@@ -60,6 +60,7 @@ Button :: struct {
   baseColor: rl.Color,
   hoverColor: rl.Color,
   clickColor: rl.Color,
+  textColor: rl.Color,
   onClick: proc(),
 }
 
@@ -225,7 +226,7 @@ drawExitOverlay :: proc() {
 
   for button in g.exitOverlayState.buttons {
     rl.DrawRectangleRec(button.pos, button.currentColor)
-    rl.DrawText(button.label, i32(button.pos.x) + ButtonPadding, i32(button.pos.y) + ButtonPadding, 12, rl.BLACK)
+    rl.DrawText(button.label, i32(button.pos.x) + ButtonPadding, i32(button.pos.y) + ButtonPadding, 12, button.textColor)
   }
 }
 
@@ -316,10 +317,12 @@ createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
   // TODO: Calculate button height too
   for &button in buttons {
     button.pos.width = f32(rl.MeasureText(button.label, 12)) + doublePad
-    button.baseColor = rl.GRAY
-    button.hoverColor = rl.LIGHTGRAY
-    button.clickColor = rl.DARKGRAY
+    button.baseColor = { 44, 47, 60, 255 }
+    button.hoverColor = { 53, 56, 72, 255 }
+    button.clickColor = { 84, 86, 105, 255 }
     button.currentColor = button.baseColor
+
+    button.textColor = { 248, 248, 242, 255 }
   }
 
   return buttons
