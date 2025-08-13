@@ -56,6 +56,10 @@ Button :: struct {
   //  cstring is worse than allocating every
   //  frame on the exit screen
   label: cstring,
+  currentColor: rl.Color,
+  baseColor: rl.Color,
+  hoverColor: rl.Color,
+  clickColor: rl.Color,
   onClick: proc(),
 }
 
@@ -96,15 +100,17 @@ exitOverlayUpdate :: proc() {
     fmt.println("Right Clicked in exit mode")
   }
 
-  if rl.IsMouseButtonPressed(.LEFT) {
-    for button in g.exitOverlayState.buttons {
-      if rl.CheckCollisionPointRec(g.screenMouse, button.pos) {
+  for &button in g.exitOverlayState.buttons {
+    if rl.CheckCollisionPointRec(g.screenMouse, button.pos) {
+      if rl.IsMouseButtonPressed(.LEFT) {
         button.onClick()
+      } else {
+        button.currentColor = button.hoverColor
       }
+    } else {
+        button.currentColor = button.baseColor
     }
   }
-
-  // g.exitOverlayState.buttons[1].pos.x = 200 / g.uiCam.zoom
 
   evenSpaceHorizontal(g.exitOverlayState.buttons, f32(rl.GetScreenWidth()), g.uiCam.zoom)
 }
@@ -223,8 +229,8 @@ drawExitOverlay :: proc() {
   rl.DrawRectangleRec(rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), bgColor)
 
   for button in g.exitOverlayState.buttons {
-    rl.DrawRectangleRec(button.pos, rl.GRAY)
-    rl.DrawText(button.label, i32(button.pos.x), i32(button.pos.y), 15, rl.BLACK)
+    rl.DrawRectangleRec(button.pos, button.currentColor)
+    rl.DrawText(button.label, i32(button.pos.x) + ButtonPadding, i32(button.pos.y) + ButtonPadding, 12, rl.BLACK)
   }
 }
 
@@ -270,14 +276,17 @@ loadSettings :: proc(allocator := context.allocator) {
   }
 }
 
+ButtonPadding :: 5
 createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
+  doublePad : f32 = ButtonPadding * 2
   yesButton : Button = {
-    pos = { y = 30, width = 30, height = 20 },
+    pos = { y = 30, height = 20 },
     label = "Yes",
     onClick = proc() {
       fmt.println("Yes Button Worked!")
     },
   }
+
 
   noButton : Button = {
     pos = { y = 30, width = 30, height = 20 },
@@ -308,6 +317,14 @@ createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
   append(&buttons, noButton)
   append(&buttons, maybeButton)
   append(&buttons, lastButton)
+
+  // TODO: Calculate button height too
+  for &button in buttons {
+    button.pos.width = f32(rl.MeasureText(button.label, 12)) + doublePad
+    button.baseColor = rl.GRAY
+    button.hoverColor = rl.LIGHTGRAY
+    button.currentColor = button.baseColor
+  }
 
   return buttons
 }
