@@ -96,10 +96,11 @@ exitOverlayUpdate :: proc() {
 
   for &button in g.exitOverlayState.buttons {
     if rl.CheckCollisionPointRec(g.screenMouse, button.pos) {
-      if rl.IsMouseButtonPressed(.LEFT) {
+      button.currentColor = button.hoverColor
+      if rl.IsMouseButtonReleased(.LEFT) {
         button.onClick()
-      } else {
-        button.currentColor = button.hoverColor
+      } else if rl.IsMouseButtonDown(.LEFT) {
+        button.currentColor = button.clickColor
       }
     } else {
         button.currentColor = button.baseColor
@@ -317,6 +318,7 @@ createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
     button.pos.width = f32(rl.MeasureText(button.label, 12)) + doublePad
     button.baseColor = rl.GRAY
     button.hoverColor = rl.LIGHTGRAY
+    button.clickColor = rl.DARKGRAY
     button.currentColor = button.baseColor
   }
 
