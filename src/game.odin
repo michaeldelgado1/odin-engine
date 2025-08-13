@@ -90,12 +90,6 @@ exitOverlayUpdate :: proc() {
     g.editorState.currentOverlay = .NoOverlay
   }
 
-  if rl.IsKeyPressed(.T) {
-    for button in g.exitOverlayState.buttons {
-      button.onClick()
-    }
-  }
-
   if rl.IsMouseButtonPressed(.RIGHT) {
     fmt.println("Right Clicked in exit mode")
   }
