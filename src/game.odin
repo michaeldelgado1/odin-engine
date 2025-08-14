@@ -66,14 +66,16 @@ Buttons :: enum int {
   ExitNo,
 }
 
+// Button [ colors, fontSize, hot, active ]
 UiCtx :: struct {
   mousePos: rl.Vector2,
   buttonPositions: []rl.Rectangle,
   hotButton: Buttons,
   activeButton: Buttons,
-  buttonFontSize: i32,
+  buttonFontSize: f32,
   buttonColors : ButtonColors,
   screenDims : rl.Vector2,
+  font: rl.Font,
 }
 
 Game_Memory :: struct {
@@ -86,7 +88,6 @@ Game_Memory :: struct {
   gameCam: rl.Camera2D,
   screenMouse: rl.Vector2,
   worldMouse: rl.Vector2,
-  font: rl.Font,
   uiState: UiCtx,
 }
 
@@ -292,7 +293,7 @@ drawButton :: proc (buttonId: Buttons, label: cstring, ctx: ^UiCtx) -> bool {
   }
 
   rl.DrawRectangleRec(buttonRect, color)
-  rl.DrawText(label, i32(buttonRect.x) + ButtonPadding, i32(buttonRect.y) + ButtonPadding, ctx.buttonFontSize, ctx.buttonColors.text)
+  rl.DrawTextEx(ctx.font, label, { buttonRect.x + ButtonPadding, buttonRect.y + ButtonPadding }, f32(ctx.buttonFontSize), getFontSpacing(ctx.font, ctx.buttonFontSize), ctx.buttonColors.text)
 
   return result
 }
@@ -342,17 +343,20 @@ ButtonPadding :: 5
 createExitButtonRects :: proc(ctx: ^UiCtx, allocator := context.allocator) {
   doublePad : f32 = ButtonPadding * 2
   buttonY : f32 = g.exitOverlayState.heading.pos.y + 40
+  fontSpacing := getFontSpacing(ctx.font, ctx.buttonFontSize)
 
+  yesDims := rl.MeasureTextEx(ctx.font, "Yes", ctx.buttonFontSize, fontSpacing)
   yesButton : rl.Rectangle = {
     y = buttonY,
-    height = 20,
-    width = f32(rl.MeasureText("Yes", ctx.buttonFontSize)) + doublePad,
+    width = yesDims.x + doublePad,
+    height = yesDims.y + doublePad,
   }
 
+  noDims := rl.MeasureTextEx(ctx.font, "No", ctx.buttonFontSize, fontSpacing)
   noButton : rl.Rectangle = {
     y = buttonY,
-    height = 20,
-    width = f32(rl.MeasureText("No", ctx.buttonFontSize)) + doublePad,
+    width = noDims.x + doublePad,
+    height = noDims.y + doublePad,
   }
 
   ctx.buttonPositions[Buttons.ExitYes] = yesButton
@@ -379,6 +383,17 @@ evenSpaceHorizontal :: proc(rects: []rl.Rectangle, width: f32) {
     }
     rects[idx].x = spaceBetween + prevPos + acrossButton
   }
+}
+
+// NOTE: This comes from raylib: https://github.com/raysan5/raylib/blob/d1b535c7b8c31ca29fa1c5872f79ec7ea153cd2f/src/rtext.c#L1160
+DefaultFontSize :: 10
+getFontSpacing :: proc(font: rl.Font, fontSize: f32) -> f32 {
+  baselineSize := fontSize
+  if fontSize < DefaultFontSize {
+    baselineSize = DefaultFontSize
+  }
+
+  return baselineSize/DefaultFontSize
 }
 
 game_camera :: proc() -> rl.Camera2D {
@@ -443,6 +458,8 @@ game_init :: proc() {
     },
     uiState = {
       buttonColors = DraculaColors,
+      font = rl.GetFontDefault(),
+      buttonFontSize = 12,
     },
   }
 
