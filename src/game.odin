@@ -50,20 +50,6 @@ EditorState :: struct {
   currentOverlay: OverlayType,
 }
 
-Button :: struct {
-  pos: rl.Rectangle,
-  // TODO: Figure out if making this a
-  //  cstring is worse than allocating every
-  //  frame on the exit screen
-  label: cstring,
-  currentColor: rl.Color,
-  baseColor: rl.Color,
-  hoverColor: rl.Color,
-  clickColor: rl.Color,
-  textColor: rl.Color,
-  onClick: proc(),
-}
-
 OverlayHeading :: struct {
   pos: rl.Vector2,
   text: cstring,
@@ -72,7 +58,6 @@ OverlayHeading :: struct {
 
 OverlayState :: struct {
   heading: OverlayHeading,
-  buttons: [dynamic]Button,
 }
 
 Buttons :: enum int {
@@ -87,6 +72,10 @@ UiCtx :: struct {
   hotButton: Buttons,
   activeButton: Buttons,
   buttonFontSize: i32,
+  defaultButtonColor: rl.Color,
+  hotButtonColor: rl.Color,
+  activeButtonColor: rl.Color,
+  buttonTextColor: rl.Color,
 }
 
 Game_Memory :: struct {
@@ -112,7 +101,6 @@ rectDims := rl.Vector2 {
 
 
 exitOverlayUpdate :: proc() {
-  // overlayState := g.exitOverlayState
   if rl.IsKeyPressed(.E) {
     g.editorState.currentOverlay = .NoOverlay
   }
@@ -121,20 +109,7 @@ exitOverlayUpdate :: proc() {
     fmt.println("Right Clicked in exit mode")
   }
 
-  // for &button in overlayState.buttons {
-  //   if rl.CheckCollisionPointRec(g.screenMouse, button.pos) {
-  //     button.currentColor = button.hoverColor
-  //     if rl.IsMouseButtonReleased(.LEFT) {
-  //       button.onClick()
-  //     } else if rl.IsMouseButtonDown(.LEFT) {
-  //       button.currentColor = button.clickColor
-  //     }
-  //   } else {
-  //       button.currentColor = button.baseColor
-  //   }
-  // }
-  //
-  // evenSpaceHorizontal(overlayState.buttons, f32(rl.GetScreenWidth()), g.uiCam.zoom)
+  evenSpaceHorizontal(g.uiState.buttonPositions[1:], f32(rl.GetScreenWidth()), g.uiCam.zoom)
 }
 
 noOverlayUpdate :: proc() {
@@ -252,23 +227,20 @@ drawExitOverlay :: proc() {
 
   rl.DrawText(g.exitOverlayState.heading.text, i32(g.exitOverlayState.heading.pos.x), i32(g.exitOverlayState.heading.pos.y), g.exitOverlayState.heading.fontSize, rl.WHITE)
 
-  // for button in g.exitOverlayState.buttons {
-  //   rl.DrawRectangleRec(button.pos, button.currentColor)
-  //   rl.DrawText(button.label, i32(button.pos.x) + ButtonPadding, i32(button.pos.y) + ButtonPadding, 12, button.textColor)
-  // }
-  if drawButton(.ExitYes, &g.uiState) {
+  if drawButton(.ExitYes, "Yes", &g.uiState) {
     fmt.println("Yes Was Pressed")
+  }
+
+  if drawButton(.ExitNo, "No", &g.uiState) {
+    fmt.println("No Was Pressed")
   }
 }
 
-drawButton :: proc (buttonId: Buttons, ctx: ^UiCtx) -> bool {
+drawButton :: proc (buttonId: Buttons, label: cstring, ctx: ^UiCtx) -> bool {
   result : bool
   if ctx.activeButton == buttonId {
-    fmt.println("Active!!")
     if rl.IsMouseButtonReleased(.LEFT) {
-      fmt.println("Released!!")
       if ctx.hotButton == buttonId {
-        fmt.println("True!!")
         result = true
       }
       ctx.activeButton = .None
@@ -282,14 +254,20 @@ drawButton :: proc (buttonId: Buttons, ctx: ^UiCtx) -> bool {
   if rl.CheckCollisionPointRec(g.screenMouse, buttonRect) {
     if ctx.activeButton == .None {
       ctx.hotButton = buttonId
-      fmt.println("Hot!!")
     }
   } else if ctx.hotButton == buttonId {
     ctx.hotButton = .None
-    fmt.println("UnHot")
   }
 
-  rl.DrawRectangleRec(buttonRect, rl.BLACK)
+  color := ctx.defaultButtonColor
+  if ctx.activeButton == buttonId {
+    color = ctx.activeButtonColor
+  } else if ctx.hotButton == buttonId {
+    color = ctx.hotButtonColor
+  }
+
+  rl.DrawRectangleRec(buttonRect, color)
+  rl.DrawText(label, i32(buttonRect.x) + ButtonPadding, i32(buttonRect.y) + ButtonPadding, ctx.buttonFontSize, ctx.buttonTextColor)
 
   return result
 }
@@ -336,45 +314,6 @@ loadSettings :: proc(allocator := context.allocator) {
 }
 
 ButtonPadding :: 5
-createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
-  doublePad : f32 = ButtonPadding * 2
-  buttonY : f32 = g.exitOverlayState.heading.pos.y + 40
-
-  yesButton : Button = {
-    pos = { y = buttonY, height = 20 },
-    label = "Yes",
-    onClick = proc() {
-      fmt.println("Yes Button Worked!")
-    },
-  }
-
-
-  noButton : Button = {
-    pos = { y = buttonY, height = 20 },
-    label = "No",
-    onClick = proc() {
-      g.editorState.currentOverlay = .NoOverlay
-    },
-  }
-
-  buttons := make([dynamic]Button, 0, allocator)
-  append(&buttons, yesButton)
-  append(&buttons, noButton)
-
-  // TODO: Calculate button height too
-  for &button in buttons {
-    button.pos.width = f32(rl.MeasureText(button.label, 12)) + doublePad
-    button.baseColor = { 44, 47, 60, 255 }
-    button.hoverColor = { 53, 56, 72, 255 }
-    button.clickColor = { 84, 86, 105, 255 }
-    button.currentColor = button.baseColor
-
-    button.textColor = { 248, 248, 242, 255 }
-  }
-
-  return buttons
-}
-
 createExitButtonRects :: proc(ctx: ^UiCtx, allocator := context.allocator) {
   doublePad : f32 = ButtonPadding * 2
   buttonY : f32 = g.exitOverlayState.heading.pos.y + 40
@@ -395,26 +334,26 @@ createExitButtonRects :: proc(ctx: ^UiCtx, allocator := context.allocator) {
   ctx.buttonPositions[Buttons.ExitNo] = noButton
 }
 
-evenSpaceHorizontal :: proc(buttons: [dynamic]Button, width: f32, scale: f32) {
+evenSpaceHorizontal :: proc(rects: []rl.Rectangle, width: f32, scale: f32) {
   scaledWidth := width / scale
   totalButtonSizes : f32
 
-  for button in buttons {
-    totalButtonSizes += (button.pos.width)
+  for rect in rects {
+    totalButtonSizes += (rect.width)
   }
 
   leftoverSpace := scaledWidth - totalButtonSizes
-  spaceBetween := leftoverSpace / f32(len(buttons) + 1)
+  spaceBetween := leftoverSpace / f32(len(rects) + 1)
 
-  for idx in 0..<len(buttons) {
+  for idx in 0..<len(rects) {
     acrossButton : f32
     prevPos : f32
     prevIndex := idx - 1
     if prevIndex >= 0 {
-      acrossButton = (buttons[prevIndex].pos.width)
-      prevPos = buttons[prevIndex].pos.x
+      acrossButton = (rects[prevIndex].width)
+      prevPos = rects[prevIndex].x
     }
-    buttons[idx].pos.x = spaceBetween + prevPos + acrossButton
+    rects[idx].x = spaceBetween + prevPos + acrossButton
   }
 }
 
@@ -478,14 +417,18 @@ game_init :: proc() {
         fontSize = 17,
       },
     },
+    uiState = {
+      defaultButtonColor = { 44, 47, 60, 255 },
+      hotButtonColor = { 53, 56, 72, 255 },
+      activeButtonColor = { 84, 86, 105, 255 },
+      buttonTextColor = { 248, 248, 242, 255 },
+    },
   }
 
   gameArena : vmem.Arena
   allocator := vmem.arena_allocator(&gameArena)
 
   loadSettings(allocator)
-
-  g.exitOverlayState.buttons = createExitButtons(allocator)
 
   g.uiState.buttonPositions = make([]rl.Rectangle, len(Buttons), allocator) 
   createExitButtonRects(&g.uiState, allocator)
