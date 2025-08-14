@@ -75,6 +75,20 @@ OverlayState :: struct {
   buttons: [dynamic]Button,
 }
 
+Buttons :: enum int {
+  None,
+  ExitYes,
+  ExitNo,
+}
+
+UiCtx :: struct {
+  // mousePos: rl.Vector2,
+  buttonPositions: []rl.Rectangle,
+  hotButton: Buttons,
+  activeButton: Buttons,
+  buttonFontSize: i32,
+}
+
 Game_Memory :: struct {
   editorState: EditorState,
   exitOverlayState: OverlayState,
@@ -85,6 +99,8 @@ Game_Memory :: struct {
   gameCam: rl.Camera2D,
   screenMouse: rl.Vector2,
   worldMouse: rl.Vector2,
+  font: rl.Font,
+  uiState: UiCtx,
 }
 
 g: ^Game_Memory
@@ -93,7 +109,10 @@ rectDims := rl.Vector2 {
   22, 15,
 }
 
+
+
 exitOverlayUpdate :: proc() {
+  // overlayState := g.exitOverlayState
   if rl.IsKeyPressed(.E) {
     g.editorState.currentOverlay = .NoOverlay
   }
@@ -102,20 +121,20 @@ exitOverlayUpdate :: proc() {
     fmt.println("Right Clicked in exit mode")
   }
 
-  for &button in g.exitOverlayState.buttons {
-    if rl.CheckCollisionPointRec(g.screenMouse, button.pos) {
-      button.currentColor = button.hoverColor
-      if rl.IsMouseButtonReleased(.LEFT) {
-        button.onClick()
-      } else if rl.IsMouseButtonDown(.LEFT) {
-        button.currentColor = button.clickColor
-      }
-    } else {
-        button.currentColor = button.baseColor
-    }
-  }
-
-  evenSpaceHorizontal(g.exitOverlayState.buttons, f32(rl.GetScreenWidth()), g.uiCam.zoom)
+  // for &button in overlayState.buttons {
+  //   if rl.CheckCollisionPointRec(g.screenMouse, button.pos) {
+  //     button.currentColor = button.hoverColor
+  //     if rl.IsMouseButtonReleased(.LEFT) {
+  //       button.onClick()
+  //     } else if rl.IsMouseButtonDown(.LEFT) {
+  //       button.currentColor = button.clickColor
+  //     }
+  //   } else {
+  //       button.currentColor = button.baseColor
+  //   }
+  // }
+  //
+  // evenSpaceHorizontal(overlayState.buttons, f32(rl.GetScreenWidth()), g.uiCam.zoom)
 }
 
 noOverlayUpdate :: proc() {
@@ -164,8 +183,8 @@ noOverlayUpdate :: proc() {
 }
 
 update :: proc() {
-  g.uiCam= ui_camera()
-  g.gameCam= game_camera()
+  g.uiCam = ui_camera()
+  g.gameCam = game_camera()
   g.worldMouse = rl.GetMousePosition()
   g.screenMouse = rl.GetScreenToWorld2D(g.worldMouse, g.uiCam)
 
@@ -233,12 +252,47 @@ drawExitOverlay :: proc() {
 
   rl.DrawText(g.exitOverlayState.heading.text, i32(g.exitOverlayState.heading.pos.x), i32(g.exitOverlayState.heading.pos.y), g.exitOverlayState.heading.fontSize, rl.WHITE)
 
-  for button in g.exitOverlayState.buttons {
-    rl.DrawRectangleRec(button.pos, button.currentColor)
-    rl.DrawText(button.label, i32(button.pos.x) + ButtonPadding, i32(button.pos.y) + ButtonPadding, 12, button.textColor)
+  // for button in g.exitOverlayState.buttons {
+  //   rl.DrawRectangleRec(button.pos, button.currentColor)
+  //   rl.DrawText(button.label, i32(button.pos.x) + ButtonPadding, i32(button.pos.y) + ButtonPadding, 12, button.textColor)
+  // }
+  if drawButton(.ExitYes, &g.uiState) {
+    fmt.println("Yes Was Pressed")
   }
 }
 
+drawButton :: proc (buttonId: Buttons, ctx: ^UiCtx) -> bool {
+  result : bool
+  if ctx.activeButton == buttonId {
+    fmt.println("Active!!")
+    if rl.IsMouseButtonReleased(.LEFT) {
+      fmt.println("Released!!")
+      if ctx.hotButton == buttonId {
+        fmt.println("True!!")
+        result = true
+      }
+      ctx.activeButton = .None
+    }
+  } else if ctx.hotButton == buttonId && rl.IsMouseButtonDown(.LEFT) {
+    ctx.activeButton = buttonId
+  }
+
+  buttonRect := ctx.buttonPositions[buttonId]
+  // TODO: Maybe don't assume we have this global context?
+  if rl.CheckCollisionPointRec(g.screenMouse, buttonRect) {
+    if ctx.activeButton == .None {
+      ctx.hotButton = buttonId
+      fmt.println("Hot!!")
+    }
+  } else if ctx.hotButton == buttonId {
+    ctx.hotButton = .None
+    fmt.println("UnHot")
+  }
+
+  rl.DrawRectangleRec(buttonRect, rl.BLACK)
+
+  return result
+}
 
 centerRectToPoint :: proc(point: rl.Vector2, rectDims: rl.Vector2) -> rl.Rectangle {
   posOffset := rl.Vector2{
@@ -319,6 +373,26 @@ createExitButtons :: proc(allocator := context.allocator) -> [dynamic]Button {
   }
 
   return buttons
+}
+
+createExitButtonRects :: proc(ctx: ^UiCtx, allocator := context.allocator) {
+  doublePad : f32 = ButtonPadding * 2
+  buttonY : f32 = g.exitOverlayState.heading.pos.y + 40
+
+  yesButton : rl.Rectangle = {
+    y = buttonY,
+    height = 20,
+    width = f32(rl.MeasureText("Yes", ctx.buttonFontSize)) + doublePad,
+  }
+
+  noButton : rl.Rectangle = {
+    y = buttonY,
+    height = 20,
+    width = f32(rl.MeasureText("No", ctx.buttonFontSize)) + doublePad,
+  }
+
+  ctx.buttonPositions[Buttons.ExitYes] = yesButton
+  ctx.buttonPositions[Buttons.ExitNo] = noButton
 }
 
 evenSpaceHorizontal :: proc(buttons: [dynamic]Button, width: f32, scale: f32) {
@@ -412,6 +486,9 @@ game_init :: proc() {
   loadSettings(allocator)
 
   g.exitOverlayState.buttons = createExitButtons(allocator)
+
+  g.uiState.buttonPositions = make([]rl.Rectangle, len(Buttons), allocator) 
+  createExitButtonRects(&g.uiState, allocator)
 
 
   g.gameArena = gameArena
