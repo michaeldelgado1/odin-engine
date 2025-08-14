@@ -67,15 +67,13 @@ Buttons :: enum int {
 }
 
 UiCtx :: struct {
-  // mousePos: rl.Vector2,
+  mousePos: rl.Vector2,
   buttonPositions: []rl.Rectangle,
   hotButton: Buttons,
   activeButton: Buttons,
   buttonFontSize: i32,
-  defaultButtonColor: rl.Color,
-  hotButtonColor: rl.Color,
-  activeButtonColor: rl.Color,
-  buttonTextColor: rl.Color,
+  buttonColors : ButtonColors,
+  screenDims : rl.Vector2,
 }
 
 Game_Memory :: struct {
@@ -90,6 +88,20 @@ Game_Memory :: struct {
   worldMouse: rl.Vector2,
   font: rl.Font,
   uiState: UiCtx,
+}
+
+ButtonColors :: struct {
+  default: rl.Color,
+  hot: rl.Color,
+  active: rl.Color,
+  text: rl.Color,
+}
+
+DraculaColors : ButtonColors : {
+  default = { 44, 47, 60, 255 },
+  hot = { 53, 56, 72, 255 },
+  active = { 84, 86, 105, 255 },
+  text = { 248, 248, 242, 255 },
 }
 
 g: ^Game_Memory
@@ -109,7 +121,7 @@ exitOverlayUpdate :: proc() {
     fmt.println("Right Clicked in exit mode")
   }
 
-  evenSpaceHorizontal(g.uiState.buttonPositions[1:], f32(rl.GetScreenWidth()), g.uiCam.zoom)
+  evenSpaceHorizontal(g.uiState.buttonPositions[1:], g.uiState.screenDims.x)
 }
 
 noOverlayUpdate :: proc() {
@@ -162,6 +174,18 @@ update :: proc() {
   g.gameCam = game_camera()
   g.worldMouse = rl.GetMousePosition()
   g.screenMouse = rl.GetScreenToWorld2D(g.worldMouse, g.uiCam)
+  g.uiState.mousePos = g.screenMouse
+  g.uiState.screenDims = {
+    f32(rl.GetScreenWidth())/g.uiCam.zoom,
+    f32(rl.GetScreenHeight())/g.uiCam.zoom,
+  }
+
+  // TODO: These cursors are weird and don't follow the OS theme on Linux
+  // if g.uiState.hotButton != .None || g.uiState.activeButton != .None {
+  //   rl.SetMouseCursor(.POINTING_HAND)
+  // } else {
+  //   rl.SetMouseCursor(.DEFAULT)
+  // }
 
   // NOTE: This is useful to escape out of all overlays, so don't
   //  put this in a particular update function
@@ -238,6 +262,7 @@ drawExitOverlay :: proc() {
 
 drawButton :: proc (buttonId: Buttons, label: cstring, ctx: ^UiCtx) -> bool {
   result : bool
+  // TODO: Bug with active and clicking before hovering on button
   if ctx.activeButton == buttonId {
     if rl.IsMouseButtonReleased(.LEFT) {
       if ctx.hotButton == buttonId {
@@ -251,7 +276,7 @@ drawButton :: proc (buttonId: Buttons, label: cstring, ctx: ^UiCtx) -> bool {
 
   buttonRect := ctx.buttonPositions[buttonId]
   // TODO: Maybe don't assume we have this global context?
-  if rl.CheckCollisionPointRec(g.screenMouse, buttonRect) {
+  if rl.CheckCollisionPointRec(ctx.mousePos, buttonRect) {
     if ctx.activeButton == .None {
       ctx.hotButton = buttonId
     }
@@ -259,15 +284,15 @@ drawButton :: proc (buttonId: Buttons, label: cstring, ctx: ^UiCtx) -> bool {
     ctx.hotButton = .None
   }
 
-  color := ctx.defaultButtonColor
+  color := ctx.buttonColors.default
   if ctx.activeButton == buttonId {
-    color = ctx.activeButtonColor
+    color = ctx.buttonColors.active
   } else if ctx.hotButton == buttonId {
-    color = ctx.hotButtonColor
+    color = ctx.buttonColors.hot
   }
 
   rl.DrawRectangleRec(buttonRect, color)
-  rl.DrawText(label, i32(buttonRect.x) + ButtonPadding, i32(buttonRect.y) + ButtonPadding, ctx.buttonFontSize, ctx.buttonTextColor)
+  rl.DrawText(label, i32(buttonRect.x) + ButtonPadding, i32(buttonRect.y) + ButtonPadding, ctx.buttonFontSize, ctx.buttonColors.text)
 
   return result
 }
@@ -334,15 +359,14 @@ createExitButtonRects :: proc(ctx: ^UiCtx, allocator := context.allocator) {
   ctx.buttonPositions[Buttons.ExitNo] = noButton
 }
 
-evenSpaceHorizontal :: proc(rects: []rl.Rectangle, width: f32, scale: f32) {
-  scaledWidth := width / scale
+evenSpaceHorizontal :: proc(rects: []rl.Rectangle, width: f32) {
   totalButtonSizes : f32
 
   for rect in rects {
     totalButtonSizes += (rect.width)
   }
 
-  leftoverSpace := scaledWidth - totalButtonSizes
+  leftoverSpace :=  width - totalButtonSizes
   spaceBetween := leftoverSpace / f32(len(rects) + 1)
 
   for idx in 0..<len(rects) {
@@ -418,10 +442,7 @@ game_init :: proc() {
       },
     },
     uiState = {
-      defaultButtonColor = { 44, 47, 60, 255 },
-      hotButtonColor = { 53, 56, 72, 255 },
-      activeButtonColor = { 84, 86, 105, 255 },
-      buttonTextColor = { 248, 248, 242, 255 },
+      buttonColors = DraculaColors,
     },
   }
 
