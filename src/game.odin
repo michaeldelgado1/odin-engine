@@ -66,14 +66,17 @@ Buttons :: enum int {
   ExitNo,
 }
 
-// Button [ colors, fontSize, hot, active ]
+Button :: struct {
+  colors: ButtonColors,
+  fontSize: f32,
+  hot: Buttons,
+  active: Buttons,
+  rectangles: []rl.Rectangle,
+}
+
 UiCtx :: struct {
   mousePos: rl.Vector2,
-  buttonPositions: []rl.Rectangle,
-  hotButton: Buttons,
-  activeButton: Buttons,
-  buttonFontSize: f32,
-  buttonColors : ButtonColors,
+  button: Button,
   screenDims : rl.Vector2,
   font: rl.Font,
 }
@@ -122,7 +125,7 @@ exitOverlayUpdate :: proc() {
     fmt.println("Right Clicked in exit mode")
   }
 
-  evenSpaceHorizontal(g.uiState.buttonPositions[1:], g.uiState.screenDims.x)
+  evenSpaceHorizontal(g.uiState.button.rectangles[1:], g.uiState.screenDims.x)
 }
 
 noOverlayUpdate :: proc() {
@@ -264,36 +267,36 @@ drawExitOverlay :: proc() {
 drawButton :: proc (buttonId: Buttons, label: cstring, ctx: ^UiCtx) -> bool {
   result : bool
   // TODO: Bug with active and clicking before hovering on button
-  if ctx.activeButton == buttonId {
+  if ctx.button.active == buttonId {
     if rl.IsMouseButtonReleased(.LEFT) {
-      if ctx.hotButton == buttonId {
+      if ctx.button.active == buttonId {
         result = true
       }
-      ctx.activeButton = .None
+      ctx.button.active = .None
     }
-  } else if ctx.hotButton == buttonId && rl.IsMouseButtonDown(.LEFT) {
-    ctx.activeButton = buttonId
+  } else if ctx.button.hot == buttonId && rl.IsMouseButtonDown(.LEFT) {
+    ctx.button.active = buttonId
   }
 
-  buttonRect := ctx.buttonPositions[buttonId]
+  buttonRect := ctx.button.rectangles[buttonId]
   // TODO: Maybe don't assume we have this global context?
   if rl.CheckCollisionPointRec(ctx.mousePos, buttonRect) {
-    if ctx.activeButton == .None {
-      ctx.hotButton = buttonId
+    if ctx.button.active == .None {
+      ctx.button.hot = buttonId
     }
-  } else if ctx.hotButton == buttonId {
-    ctx.hotButton = .None
+  } else if ctx.button.hot == buttonId {
+    ctx.button.hot = .None
   }
 
-  color := ctx.buttonColors.default
-  if ctx.activeButton == buttonId {
-    color = ctx.buttonColors.active
-  } else if ctx.hotButton == buttonId {
-    color = ctx.buttonColors.hot
+  color := ctx.button.colors.default
+  if ctx.button.active == buttonId {
+    color = ctx.button.colors.active
+  } else if ctx.button.hot == buttonId {
+    color = ctx.button.colors.hot
   }
 
   rl.DrawRectangleRec(buttonRect, color)
-  rl.DrawTextEx(ctx.font, label, { buttonRect.x + ButtonPadding, buttonRect.y + ButtonPadding }, f32(ctx.buttonFontSize), getFontSpacing(ctx.font, ctx.buttonFontSize), ctx.buttonColors.text)
+  rl.DrawTextEx(ctx.font, label, { buttonRect.x + ButtonPadding, buttonRect.y + ButtonPadding }, f32(ctx.button.fontSize), getFontSpacing(ctx.font, ctx.button.fontSize), ctx.button.colors.text)
 
   return result
 }
@@ -343,24 +346,24 @@ ButtonPadding :: 5
 createExitButtonRects :: proc(ctx: ^UiCtx, allocator := context.allocator) {
   doublePad : f32 = ButtonPadding * 2
   buttonY : f32 = g.exitOverlayState.heading.pos.y + 40
-  fontSpacing := getFontSpacing(ctx.font, ctx.buttonFontSize)
+  fontSpacing := getFontSpacing(ctx.font, ctx.button.fontSize)
 
-  yesDims := rl.MeasureTextEx(ctx.font, "Yes", ctx.buttonFontSize, fontSpacing)
+  yesDims := rl.MeasureTextEx(ctx.font, "Yes", ctx.button.fontSize, fontSpacing)
   yesButton : rl.Rectangle = {
     y = buttonY,
     width = yesDims.x + doublePad,
     height = yesDims.y + doublePad,
   }
 
-  noDims := rl.MeasureTextEx(ctx.font, "No", ctx.buttonFontSize, fontSpacing)
+  noDims := rl.MeasureTextEx(ctx.font, "No", ctx.button.fontSize, fontSpacing)
   noButton : rl.Rectangle = {
     y = buttonY,
     width = noDims.x + doublePad,
     height = noDims.y + doublePad,
   }
 
-  ctx.buttonPositions[Buttons.ExitYes] = yesButton
-  ctx.buttonPositions[Buttons.ExitNo] = noButton
+  ctx.button.rectangles[Buttons.ExitYes] = yesButton
+  ctx.button.rectangles[Buttons.ExitNo] = noButton
 }
 
 evenSpaceHorizontal :: proc(rects: []rl.Rectangle, width: f32) {
@@ -457,9 +460,11 @@ game_init :: proc() {
       },
     },
     uiState = {
-      buttonColors = DraculaColors,
       font = rl.GetFontDefault(),
-      buttonFontSize = 12,
+      button = {
+        fontSize = 12,
+        colors = DraculaColors,
+      },
     },
   }
 
@@ -468,7 +473,7 @@ game_init :: proc() {
 
   loadSettings(allocator)
 
-  g.uiState.buttonPositions = make([]rl.Rectangle, len(Buttons), allocator) 
+  g.uiState.button.rectangles = make([]rl.Rectangle, len(Buttons), allocator) 
   createExitButtonRects(&g.uiState, allocator)
 
 
