@@ -40,9 +40,8 @@ SECOND_MONITOR_NUMBER :: 1
 DUAL_MONITOR :: true
 
 OverlayType :: enum int {
-  NoOverlay,
+  None,
   ExitOverlay,
-  // OverlayCount?
 }
 
 EditorState :: struct {
@@ -60,7 +59,7 @@ OverlayState :: struct {
   heading: OverlayHeading,
 }
 
-Buttons :: enum int {
+ButtonId :: enum int {
   None,
   ExitYes,
   ExitNo,
@@ -69,8 +68,8 @@ Buttons :: enum int {
 Button :: struct {
   colors: ButtonColors,
   fontSize: f32,
-  hot: Buttons,
-  active: Buttons,
+  hot: ButtonId,
+  active: ButtonId,
   rectangles: []rl.Rectangle,
 }
 
@@ -91,7 +90,8 @@ Game_Memory :: struct {
   gameCam: rl.Camera2D,
   screenMouse: rl.Vector2,
   worldMouse: rl.Vector2,
-  uiState: UiCtx,
+  uiCtx: UiCtx,
+  drawDebugHud: bool,
 }
 
 ButtonColors :: struct {
@@ -118,14 +118,10 @@ rectDims := rl.Vector2 {
 
 exitOverlayUpdate :: proc() {
   if rl.IsKeyPressed(.E) {
-    g.editorState.currentOverlay = .NoOverlay
+    g.editorState.currentOverlay = .None
   }
 
-  if rl.IsMouseButtonPressed(.RIGHT) {
-    fmt.println("Right Clicked in exit mode")
-  }
-
-  evenSpaceHorizontal(g.uiState.button.rectangles[1:], g.uiState.screenDims.x)
+  evenSpaceHorizontal(g.uiCtx.button.rectangles[1:], g.uiCtx.screenDims.x)
 }
 
 noOverlayUpdate :: proc() {
@@ -157,20 +153,6 @@ noOverlayUpdate :: proc() {
     allocator := vmem.arena_allocator(&g.gameArena)
     loadSettings(allocator)
   }
-
-  if rl.IsKeyPressed(.C) {
-    // Center window on monitor
-    winWidth := rl.GetScreenWidth()
-    winHeight := rl.GetScreenHeight()
-
-    monWidth := rl.GetMonitorWidth(MAIN_MONITOR_NUMBER)
-    monHeight := rl.GetMonitorHeight(MAIN_MONITOR_NUMBER)
-
-    x := monWidth - winWidth
-    y := monHeight - winHeight
-
-    rl.SetWindowPosition((x/2), (y/2))
-  }
 }
 
 update :: proc() {
@@ -178,8 +160,8 @@ update :: proc() {
   g.gameCam = game_camera()
   g.worldMouse = rl.GetMousePosition()
   g.screenMouse = rl.GetScreenToWorld2D(g.worldMouse, g.uiCam)
-  g.uiState.mousePos = g.screenMouse
-  g.uiState.screenDims = {
+  g.uiCtx.mousePos = g.screenMouse
+  g.uiCtx.screenDims = {
     f32(rl.GetScreenWidth())/g.uiCam.zoom,
     f32(rl.GetScreenHeight())/g.uiCam.zoom,
   }
@@ -194,18 +176,37 @@ update :: proc() {
   // NOTE: This is useful to escape out of all overlays, so don't
   //  put this in a particular update function
   if rl.IsKeyPressed(.ESCAPE) {
-    if g.editorState.currentOverlay != .NoOverlay {
-      g.editorState.currentOverlay = .NoOverlay
+    if g.editorState.currentOverlay != .None {
+      g.editorState.currentOverlay = .None
     } else {
       g.run = false
     }
   }
 
   switch g.editorState.currentOverlay {
-  case .NoOverlay:
+  case .None:
     noOverlayUpdate()
   case .ExitOverlay:
     exitOverlayUpdate()
+  }
+
+  if rl.IsKeyPressed(.C) {
+    // Center window on monitor
+    // TODO: Doesn't work with multi monitor
+    winWidth := rl.GetScreenWidth()
+    winHeight := rl.GetScreenHeight()
+
+    monWidth := rl.GetMonitorWidth(MAIN_MONITOR_NUMBER)
+    monHeight := rl.GetMonitorHeight(MAIN_MONITOR_NUMBER)
+
+    x := monWidth - winWidth
+    y := monHeight - winHeight
+
+    rl.SetWindowPosition((x/2), (y/2))
+  }
+
+  if rl.IsKeyPressed(.H) {
+    g.drawDebugHud = !g.drawDebugHud
   }
 }
 
@@ -225,13 +226,15 @@ draw :: proc() {
     rl.BeginMode2D(g.uiCam)
     {
       switch g.editorState.currentOverlay {
-      case .NoOverlay:
+      case .None:
         drawPlacementRect(g.uiCam)
       case .ExitOverlay:
         drawExitOverlay()
       }
 
-      drawDebugHud()
+      if g.drawDebugHud {
+        drawDebugHud()
+      }
     }
     rl.EndMode2D()
   }
@@ -240,6 +243,8 @@ draw :: proc() {
 
 drawDebugHud :: proc() {
   rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 5, 8, rl.WHITE)
+  rl.DrawText(fmt.ctprintf("Screen Mouse Pos: %v", g.screenMouse), 5, 15, 8, rl.WHITE)
+  rl.DrawText(fmt.ctprintf("World Mouse Pos: %v", g.worldMouse), 5, 25, 8, rl.WHITE)
 }
 
 drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
@@ -255,16 +260,16 @@ drawExitOverlay :: proc() {
 
   rl.DrawText(g.exitOverlayState.heading.text, i32(g.exitOverlayState.heading.pos.x), i32(g.exitOverlayState.heading.pos.y), g.exitOverlayState.heading.fontSize, rl.WHITE)
 
-  if drawButton(.ExitYes, "Yes", &g.uiState) {
+  if drawButton(.ExitYes, "Yes", &g.uiCtx) {
     fmt.println("Yes Was Pressed")
   }
 
-  if drawButton(.ExitNo, "No", &g.uiState) {
+  if drawButton(.ExitNo, "No", &g.uiCtx) {
     fmt.println("No Was Pressed")
   }
 }
 
-drawButton :: proc (buttonId: Buttons, label: cstring, ctx: ^UiCtx) -> bool {
+drawButton :: proc (buttonId: ButtonId, label: cstring, ctx: ^UiCtx) -> bool {
   result : bool
   // TODO: Bug with active and clicking before hovering on button
   if ctx.button.active == buttonId {
@@ -362,8 +367,8 @@ createExitButtonRects :: proc(ctx: ^UiCtx, allocator := context.allocator) {
     height = noDims.y + doublePad,
   }
 
-  ctx.button.rectangles[Buttons.ExitYes] = yesButton
-  ctx.button.rectangles[Buttons.ExitNo] = noButton
+  ctx.button.rectangles[ButtonId.ExitYes] = yesButton
+  ctx.button.rectangles[ButtonId.ExitNo] = noButton
 }
 
 evenSpaceHorizontal :: proc(rects: []rl.Rectangle, width: f32) {
@@ -450,7 +455,7 @@ game_init :: proc() {
   g^ = Game_Memory {
     run = true,
     editorState = {
-      currentOverlay = .NoOverlay,
+      currentOverlay = .None,
     },
     exitOverlayState = {
       heading = {
@@ -459,7 +464,7 @@ game_init :: proc() {
         fontSize = 17,
       },
     },
-    uiState = {
+    uiCtx = {
       font = rl.GetFontDefault(),
       button = {
         fontSize = 12,
@@ -473,8 +478,8 @@ game_init :: proc() {
 
   loadSettings(allocator)
 
-  g.uiState.button.rectangles = make([]rl.Rectangle, len(Buttons), allocator) 
-  createExitButtonRects(&g.uiState, allocator)
+  g.uiCtx.button.rectangles = make([]rl.Rectangle, len(ButtonId), allocator) 
+  createExitButtonRects(&g.uiCtx, allocator)
 
 
   g.gameArena = gameArena
