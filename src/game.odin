@@ -73,7 +73,7 @@ Button :: struct {
   rectangles: []rl.Rectangle,
 }
 
-UiCtx :: struct {
+UiContext :: struct {
   mousePos: rl.Vector2,
   button: Button,
   screenDims : rl.Vector2,
@@ -90,7 +90,7 @@ Game_Memory :: struct {
   gameCam: rl.Camera2D,
   screenMouse: rl.Vector2,
   worldMouse: rl.Vector2,
-  uiCtx: UiCtx,
+  uiCtx: UiContext,
   drawDebugHud: bool,
 }
 
@@ -121,7 +121,9 @@ exitOverlayUpdate :: proc() {
     g.editorState.currentOverlay = .None
   }
 
-  evenSpaceHorizontal(g.uiCtx.button.rectangles[1:], g.uiCtx.screenDims.x)
+  start := ButtonId.ExitYes
+  end := int(ButtonId.ExitNo) + 1
+  evenSpaceHorizontal(g.uiCtx.button.rectangles[start:end], g.uiCtx.screenDims.x)
 }
 
 noOverlayUpdate :: proc() {
@@ -269,7 +271,7 @@ drawExitOverlay :: proc() {
   }
 }
 
-drawButton :: proc (buttonId: ButtonId, label: cstring, ctx: ^UiCtx) -> bool {
+drawButton :: proc (buttonId: ButtonId, label: cstring, ctx: ^UiContext) -> bool {
   result : bool
   // TODO: Bug with active and clicking before hovering on button
   if ctx.button.active == buttonId {
@@ -300,7 +302,8 @@ drawButton :: proc (buttonId: ButtonId, label: cstring, ctx: ^UiCtx) -> bool {
     color = ctx.button.colors.hot
   }
 
-  rl.DrawRectangleRec(buttonRect, color)
+  // rl.DrawRectangleRec(buttonRect, color)
+  rl.DrawRectangleRounded(buttonRect, 0.4, 4, color)
   rl.DrawTextEx(ctx.font, label, { buttonRect.x + ButtonPadding, buttonRect.y + ButtonPadding }, f32(ctx.button.fontSize), getFontSpacing(ctx.font, ctx.button.fontSize), ctx.button.colors.text)
 
   return result
@@ -347,8 +350,8 @@ loadSettings :: proc(allocator := context.allocator) {
   }
 }
 
-ButtonPadding :: 5
-createExitButtonRects :: proc(ctx: ^UiCtx, allocator := context.allocator) {
+ButtonPadding :: 3
+createExitButtonRects :: proc(ctx: ^UiContext, allocator := context.allocator) {
   doublePad : f32 = ButtonPadding * 2
   buttonY : f32 = g.exitOverlayState.heading.pos.y + 40
   fontSpacing := getFontSpacing(ctx.font, ctx.button.fontSize)
