@@ -232,26 +232,25 @@ draw :: proc() {
 }
 
 breakTextIntoLines :: proc(text: string, font: rl.Font, fontSize: f32, spacing: f32, maxWidth: f32) -> ([dynamic]string, f32) {
-  // NOTE: V is the biggest char in my current font. I'll have to do a better job of finding and mesuring the biggest char
-  testChar : cstring = "V"
-  fontDims := rl.MeasureTextEx(font, testChar, fontSize, spacing)
+  spaceSize := rl.MeasureTextEx(font, " ", fontSize, spacing)
 
   words := strings.split(text, " ", context.temp_allocator)
   wordCount := len(words)
   currentLine := make([dynamic]string, 0, wordCount, context.temp_allocator)
   result := make([dynamic]string, 0, wordCount, context.temp_allocator)
   currentLineWidth : f32 = 0
-  totalLineHeight : f32 = fontDims.y
+  totalLineHeight : f32 = spaceSize.y
   for word in words {
-    wordSize := (fontDims.x + spacing) * f32(len(word))
+    wordSize := rl.MeasureTextEx(font, strings.clone_to_cstring(word, context.temp_allocator), fontSize, spacing).x
+    // NOTE: spacing * 2 to measure on either side of a space between words
     currentLineWidth += wordSize
     if len(currentLine) > 0 {
-      currentLineWidth += fontDims.x
+      currentLineWidth += spaceSize.x + (spacing * 2)
     }
 
     if currentLineWidth > maxWidth {
       currentLineWidth = wordSize
-      totalLineHeight += fontDims.y + spacing
+      totalLineHeight += spaceSize.y + spacing
       lineString := strings.join(currentLine[:], " ", context.temp_allocator)
       append(&result, lineString)
       remove_range(&currentLine, 0, len(currentLine))
@@ -329,11 +328,11 @@ drawDebugOverlay :: proc() {
   rl.DrawRectangleRec(rects.rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), bgColor)
 
   pos : rl.Vector2 = { 2, 2 }
-  boundingBox := rects.rectFromPosAndDims(pos, { 20.7, 0 })
-  testString := "This is a fun play. I think things are very well"
-  height := drawWrappedText(testString, pos, boundingBox.width, g.uiCtx.font, 3, rl.WHITE)
+  boundingBox := rects.rectFromPosAndDims(pos, { 220, 0 })
+  testString := "This is a message that fits within a text box"
+  height := drawWrappedText(testString, pos, boundingBox.width, g.uiCtx.font, 13, rl.WHITE)
   boundingBox.height = height
-  rl.DrawRectangleLinesEx(boundingBox, .3, rl.YELLOW)
+  rl.DrawRectangleLinesEx(boundingBox, .5, rl.YELLOW)
 }
 
 MaxRects :: 1024
@@ -412,8 +411,7 @@ ui_camera :: proc() -> rl.Camera2D {
 @(export)
 game_init_window :: proc() {
   rl.SetConfigFlags({ .WINDOW_RESIZABLE, .VSYNC_HINT, .WINDOW_TOPMOST })
-  // rl.InitWindow(854, 480, "Odin + Raylib + Hot Reload template!")
-  rl.InitWindow(854, 2080, "Odin + Raylib + Hot Reload template!")
+  rl.InitWindow(854, 480, "Odin + Raylib + Hot Reload template!")
 
   winWidth := rl.GetScreenWidth()
   monWidth := rl.GetMonitorWidth(MAIN_MONITOR_NUMBER)
