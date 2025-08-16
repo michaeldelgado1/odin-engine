@@ -32,6 +32,8 @@ import rl "vendor:raylib"
 import vmem "core:mem/virtual"
 import "core:encoding/json"
 import "core:os"
+import "ui"
+import "rects"
 
 PIXEL_WINDOW_HEIGHT :: 180
 
@@ -65,21 +67,6 @@ ButtonId :: enum int {
   ExitNo,
 }
 
-Button :: struct {
-  colors: ButtonColors,
-  fontSize: f32,
-  hot: ButtonId,
-  active: ButtonId,
-  rectangles: []rl.Rectangle,
-}
-
-UiContext :: struct {
-  mousePos: rl.Vector2,
-  button: Button,
-  screenDims : rl.Vector2,
-  font: rl.Font,
-}
-
 Game_Memory :: struct {
   editorState: EditorState,
   exitOverlayState: OverlayState,
@@ -90,22 +77,8 @@ Game_Memory :: struct {
   gameCam: rl.Camera2D,
   screenMouse: rl.Vector2,
   worldMouse: rl.Vector2,
-  uiCtx: UiContext,
+  uiCtx: ui.UiContext,
   drawDebugHud: bool,
-}
-
-ButtonColors :: struct {
-  default: rl.Color,
-  hot: rl.Color,
-  active: rl.Color,
-  text: rl.Color,
-}
-
-DraculaColors : ButtonColors : {
-  default = { 44, 47, 60, 255 },
-  hot = { 53, 56, 72, 255 },
-  active = { 84, 86, 105, 255 },
-  text = { 248, 248, 242, 255 },
 }
 
 g: ^Game_Memory
@@ -115,7 +88,6 @@ rectDims := rl.Vector2 {
 }
 
 
-
 exitOverlayUpdate :: proc() {
   if rl.IsKeyPressed(.E) {
     g.editorState.currentOverlay = .None
@@ -123,7 +95,7 @@ exitOverlayUpdate :: proc() {
 
   start := ButtonId.ExitYes
   end := int(ButtonId.ExitNo) + 1
-  evenSpaceHorizontal(g.uiCtx.button.rectangles[start:end], g.uiCtx.screenDims.x)
+  rects.evenSpaceHorizontal(g.uiCtx.button.rectangles[start:end], g.uiCtx.screenDims.x)
 }
 
 noOverlayUpdate :: proc() {
@@ -245,12 +217,11 @@ draw :: proc() {
 
 addGameRect :: proc() {
   rectLen := len(g.rects)
-  fmt.println("Current Len", rectLen)
   if rectLen >= MaxRects {
     fmt.println("You have exceeded the max allowed rectangles", MaxRects)
     return
   } else {
-    append(&g.rects, centerRectToPoint(g.screenMouse, rectDims))
+    append(&g.rects, rects.centerRectToPoint(g.screenMouse, rectDims))
   }
 }
 
@@ -261,7 +232,7 @@ drawDebugHud :: proc() {
 }
 
 drawPlacementRect :: proc(uiCamera: rl.Camera2D) {
-  placementRect := centerRectToPoint(g.screenMouse, rectDims)
+  placementRect := rects.centerRectToPoint(g.screenMouse, rectDims)
   rl.DrawRectangleRec(placementRect, rl.Fade(rl.GREEN, .5))
 }
 
@@ -269,81 +240,16 @@ drawExitOverlay :: proc() {
   winWidth := f32(rl.GetScreenWidth())
   winHeight := f32(rl.GetScreenHeight())
   bgColor := rl.Fade(rl.BLUE, .75)
-  rl.DrawRectangleRec(rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), bgColor)
+  rl.DrawRectangleRec(rects.rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), bgColor)
 
   rl.DrawText(g.exitOverlayState.heading.text, i32(g.exitOverlayState.heading.pos.x), i32(g.exitOverlayState.heading.pos.y), g.exitOverlayState.heading.fontSize, rl.WHITE)
 
-  if drawButton(.ExitYes, "Yes", &g.uiCtx) {
+  if drawButton(ButtonId.ExitYes, "Yes", &g.uiCtx) {
     fmt.println("Yes Was Pressed")
   }
 
-  if drawButton(.ExitNo, "No", &g.uiCtx) {
+  if drawButton(ButtonId.ExitNo, "No", &g.uiCtx) {
     fmt.println("No Was Pressed")
-  }
-}
-
-drawButton :: proc (buttonId: ButtonId, label: cstring, ctx: ^UiContext) -> bool {
-  result : bool
-  // TODO: Bug with active and clicking before hovering on button
-  if ctx.button.active == buttonId {
-    if rl.IsMouseButtonReleased(.LEFT) {
-      if ctx.button.active == buttonId {
-        result = true
-      }
-      ctx.button.active = .None
-    }
-  } else if ctx.button.hot == buttonId && rl.IsMouseButtonDown(.LEFT) {
-    ctx.button.active = buttonId
-  }
-
-  buttonRect := ctx.button.rectangles[buttonId]
-  // TODO: Maybe don't assume we have this global context?
-  if rl.CheckCollisionPointRec(ctx.mousePos, buttonRect) {
-    if ctx.button.active == .None {
-      ctx.button.hot = buttonId
-    }
-  } else if ctx.button.hot == buttonId {
-    ctx.button.hot = .None
-  }
-
-  color := ctx.button.colors.default
-  if ctx.button.active == buttonId {
-    color = ctx.button.colors.active
-  } else if ctx.button.hot == buttonId {
-    color = ctx.button.colors.hot
-  }
-
-  // rl.DrawRectangleRec(buttonRect, color)
-  rl.DrawRectangleRounded(buttonRect, 0.4, 4, color)
-  rl.DrawTextEx(ctx.font, label, { buttonRect.x + ButtonPadding, buttonRect.y + ButtonPadding }, f32(ctx.button.fontSize), getFontSpacing(ctx.font, ctx.button.fontSize), ctx.button.colors.text)
-
-  return result
-}
-
-centerRectToPoint :: proc(point: rl.Vector2, rectDims: rl.Vector2) -> rl.Rectangle {
-  posOffset := rl.Vector2{
-    (rectDims.x / 2),
-    (rectDims.y / 2),
-  }
-  resultPos := rl.Vector2{
-    point.x - posOffset.x,
-    point.y - posOffset.y,
-  }
-
-  return {
-    resultPos.x,
-    resultPos.y,
-    rectDims.x,
-    rectDims.y,
-  }
-}
-
-rectFromPosAndDims :: proc(pos: rl.Vector2, dims: rl.Vector2) -> rl.Rectangle {
-  return {
-    pos.x,
-    pos.y,
-    dims.x,
-    dims.y,
   }
 }
 
@@ -373,11 +279,10 @@ loadSettings :: proc(allocator := context.allocator) {
   }
 }
 
-ButtonPadding :: 3
-createExitButtonRects :: proc(ctx: ^UiContext, allocator := context.allocator) {
-  doublePad : f32 = ButtonPadding * 2
+createExitButtonRects :: proc(ctx: ^ui.UiContext, allocator := context.allocator) {
+  doublePad : f32 = ctx.button.padding * 2
   buttonY : f32 = g.exitOverlayState.heading.pos.y + 40
-  fontSpacing := getFontSpacing(ctx.font, ctx.button.fontSize)
+  fontSpacing := ui.getFontSpacing(ctx.font, ctx.button.fontSize)
 
   yesDims := rl.MeasureTextEx(ctx.font, "Yes", ctx.button.fontSize, fontSpacing)
   yesButton : rl.Rectangle = {
@@ -395,39 +300,6 @@ createExitButtonRects :: proc(ctx: ^UiContext, allocator := context.allocator) {
 
   ctx.button.rectangles[ButtonId.ExitYes] = yesButton
   ctx.button.rectangles[ButtonId.ExitNo] = noButton
-}
-
-evenSpaceHorizontal :: proc(rects: []rl.Rectangle, width: f32) {
-  totalButtonSizes : f32
-
-  for rect in rects {
-    totalButtonSizes += (rect.width)
-  }
-
-  leftoverSpace :=  width - totalButtonSizes
-  spaceBetween := leftoverSpace / f32(len(rects) + 1)
-
-  for idx in 0..<len(rects) {
-    acrossButton : f32
-    prevPos : f32
-    prevIndex := idx - 1
-    if prevIndex >= 0 {
-      acrossButton = (rects[prevIndex].width)
-      prevPos = rects[prevIndex].x
-    }
-    rects[idx].x = spaceBetween + prevPos + acrossButton
-  }
-}
-
-// NOTE: This comes from raylib: https://github.com/raysan5/raylib/blob/d1b535c7b8c31ca29fa1c5872f79ec7ea153cd2f/src/rtext.c#L1160
-DefaultFontSize :: 10
-getFontSpacing :: proc(font: rl.Font, fontSize: f32) -> f32 {
-  baselineSize := fontSize
-  if fontSize < DefaultFontSize {
-    baselineSize = DefaultFontSize
-  }
-
-  return baselineSize/DefaultFontSize
 }
 
 game_camera :: proc() -> rl.Camera2D {
@@ -494,7 +366,8 @@ game_init :: proc() {
       font = rl.GetFontDefault(),
       button = {
         fontSize = 12,
-        colors = DraculaColors,
+        colors = ui.DraculaColors,
+        padding = 3,
       },
     },
   }
