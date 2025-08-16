@@ -32,6 +32,7 @@ import rl "vendor:raylib"
 import vmem "core:mem/virtual"
 import "core:encoding/json"
 import "core:os"
+import "core:strings"
 import "ui"
 import "rects"
 
@@ -44,6 +45,7 @@ DUAL_MONITOR :: true
 OverlayType :: enum int {
   None,
   ExitOverlay,
+  DebugOverlay,
 }
 
 EditorState :: struct {
@@ -98,9 +100,19 @@ exitOverlayUpdate :: proc() {
   rects.evenSpaceHorizontal(g.uiCtx.button.rectangles[start:end], g.uiCtx.screenDims.x)
 }
 
+debugOverlayUpdate :: proc() {
+  if rl.IsKeyPressed(.D) {
+    g.editorState.currentOverlay = .None
+  }
+}
+
 noOverlayUpdate :: proc() {
   if rl.IsKeyPressed(.E) {
     g.editorState.currentOverlay = .ExitOverlay
+  }
+
+  if rl.IsKeyPressed(.D) {
+    g.editorState.currentOverlay = .DebugOverlay
   }
 
   if rl.IsMouseButtonPressed(.LEFT) {
@@ -162,6 +174,8 @@ update :: proc() {
     noOverlayUpdate()
   case .ExitOverlay:
     exitOverlayUpdate()
+  case .DebugOverlay:
+    debugOverlayUpdate()
   }
 
   if rl.IsKeyPressed(.C) {
@@ -204,6 +218,8 @@ draw :: proc() {
         drawPlacementRect(g.uiCam)
       case .ExitOverlay:
         drawExitOverlay()
+      case .DebugOverlay:
+        drawDebugOverlay()
       }
 
       if g.drawDebugHud {
@@ -215,14 +231,66 @@ draw :: proc() {
   rl.EndDrawing()
 }
 
-addGameRect :: proc() {
-  rectLen := len(g.rects)
-  if rectLen >= MaxRects {
-    fmt.println("You have exceeded the max allowed rectangles", MaxRects)
-    return
-  } else {
-    append(&g.rects, rects.centerRectToPoint(g.screenMouse, rectDims))
+breakTextIntoLines :: proc(text: string, font: rl.Font, fontSize: f32, spacing: f32, maxWidth: f32) -> ([dynamic]string, f32) {
+  // NOTE: V is the biggest char in my current font. I'll have to do a better job of finding and mesuring the biggest char
+  testChar : cstring = "V"
+  fontDims := rl.MeasureTextEx(font, testChar, fontSize, spacing)
+
+  words := strings.split(text, " ", context.temp_allocator)
+  wordCount := len(words)
+  currentLine := make([dynamic]string, 0, wordCount, context.temp_allocator)
+  result := make([dynamic]string, 0, wordCount, context.temp_allocator)
+  currentLineWidth : f32 = 0
+  totalLineHeight : f32 = fontDims.y
+  for word in words {
+    wordSize := (fontDims.x + spacing) * f32(len(word))
+    currentLineWidth += wordSize
+    if len(currentLine) > 0 {
+      currentLineWidth += fontDims.x
+    }
+
+    if currentLineWidth > maxWidth {
+      currentLineWidth = wordSize
+      totalLineHeight += fontDims.y + spacing
+      lineString := strings.join(currentLine[:], " ", context.temp_allocator)
+      append(&result, lineString)
+      remove_range(&currentLine, 0, len(currentLine))
+    }
+
+    append(&currentLine, word)
   }
+
+  if currentLineWidth > 0 {
+    lastLine := strings.join(currentLine[:], " ", context.temp_allocator)
+    append(&result, lastLine)
+  }
+
+  return result, totalLineHeight
+}
+
+drawWrappedText :: proc(text: string, startingPos: rl.Vector2, maxWidth: f32, font: rl.Font, fontSize: f32, textColor: rl.Color) -> f32 {
+  spacing := ui.getFontSpacing(font, fontSize)
+  // TODO: Maybe cache cstring
+  textDims := rl.MeasureTextEx(font, strings.clone_to_cstring(text, context.temp_allocator), fontSize, spacing)
+
+  if textDims.x < maxWidth {
+    rl.DrawTextEx(font, strings.clone_to_cstring(text), startingPos, fontSize, spacing, textColor)
+    return textDims.y
+  }
+
+  lines, height := breakTextIntoLines(text, font, fontSize, spacing, maxWidth)
+
+  for idx in 0..<len(lines) {
+    nextPos : rl.Vector2 = {
+      startingPos.x,
+      startingPos.y + ((textDims.y + spacing) * f32(idx)),
+    }
+
+    line := lines[idx]
+    rl.DrawTextEx(font, strings.clone_to_cstring(line, context.temp_allocator), nextPos, fontSize, spacing, textColor)
+  }
+
+  return height
 }
 
 drawDebugHud :: proc() {
@@ -253,6 +321,21 @@ drawExitOverlay :: proc() {
   }
 }
 
+drawDebugOverlay :: proc() {
+  // TODO: Probably try using UI screen dims
+  winWidth := f32(rl.GetScreenWidth())
+  winHeight := f32(rl.GetScreenHeight())
+  bgColor := rl.DARKBLUE
+  rl.DrawRectangleRec(rects.rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), bgColor)
+
+  pos : rl.Vector2 = { 2, 2 }
+  boundingBox := rects.rectFromPosAndDims(pos, { 20.7, 0 })
+  testString := "This is a fun play. I think things are very well"
+  height := drawWrappedText(testString, pos, boundingBox.width, g.uiCtx.font, 3, rl.WHITE)
+  boundingBox.height = height
+  rl.DrawRectangleLinesEx(boundingBox, .3, rl.YELLOW)
+}
+
 MaxRects :: 1024
 loadSettings :: proc(allocator := context.allocator) {
   settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
@@ -276,6 +359,16 @@ loadSettings :: proc(allocator := context.allocator) {
 
   for rect in tempArr {
     append(&g.rects, rect)
+  }
+}
+
+addGameRect :: proc() {
+  rectLen := len(g.rects)
+  if rectLen >= MaxRects {
+    fmt.println("You have exceeded the max allowed rectangles", MaxRects)
+    return
+  } else {
+    append(&g.rects, rects.centerRectToPoint(g.screenMouse, rectDims))
   }
 }
 
@@ -319,7 +412,8 @@ ui_camera :: proc() -> rl.Camera2D {
 @(export)
 game_init_window :: proc() {
   rl.SetConfigFlags({ .WINDOW_RESIZABLE, .VSYNC_HINT, .WINDOW_TOPMOST })
-  rl.InitWindow(854, 480, "Odin + Raylib + Hot Reload template!")
+  // rl.InitWindow(854, 480, "Odin + Raylib + Hot Reload template!")
+  rl.InitWindow(854, 2080, "Odin + Raylib + Hot Reload template!")
 
   winWidth := rl.GetScreenWidth()
   monWidth := rl.GetMonitorWidth(MAIN_MONITOR_NUMBER)
