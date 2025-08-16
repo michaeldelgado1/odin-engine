@@ -132,7 +132,7 @@ noOverlayUpdate :: proc() {
   }
 
   if rl.IsMouseButtonPressed(.LEFT) {
-      append(&g.rects, centerRectToPoint(g.screenMouse, rectDims))
+    addGameRect()
   }
 
   if rl.IsMouseButtonPressed(.RIGHT) {
@@ -243,6 +243,17 @@ draw :: proc() {
   rl.EndDrawing()
 }
 
+addGameRect :: proc() {
+  rectLen := len(g.rects)
+  fmt.println("Current Len", rectLen)
+  if rectLen >= MaxRects {
+    fmt.println("You have exceeded the max allowed rectangles", MaxRects)
+    return
+  } else {
+    append(&g.rects, centerRectToPoint(g.screenMouse, rectDims))
+  }
+}
+
 drawDebugHud :: proc() {
   rl.DrawText(fmt.ctprintf("Overlay State: %v", g.editorState.currentOverlay), 5, 5, 8, rl.WHITE)
   rl.DrawText(fmt.ctprintf("Screen Mouse Pos: %v", g.screenMouse), 5, 15, 8, rl.WHITE)
@@ -336,6 +347,7 @@ rectFromPosAndDims :: proc(pos: rl.Vector2, dims: rl.Vector2) -> rl.Rectangle {
   }
 }
 
+MaxRects :: 1024
 loadSettings :: proc(allocator := context.allocator) {
   settingsData, _ := os.read_entire_file("settings.json", context.temp_allocator)
   tempArr : []rl.Rectangle
@@ -344,7 +356,18 @@ loadSettings :: proc(allocator := context.allocator) {
     fmt.println(err)
   }
 
-  g.rects = make([dynamic]rl.Rectangle, 0, allocator)
+
+  tempLen := len(tempArr)
+  if tempLen > MaxRects {
+    fmt.println("Tried to load a file with too many rectangles. Max:", MaxRects, "Recieved:", tempLen)
+    return
+  }
+
+  rectLen := len(g.rects)
+  if rectLen > 1 {
+    remove_range(&g.rects, 0, len(g.rects))
+  }
+
   for rect in tempArr {
     append(&g.rects, rect)
   }
@@ -479,6 +502,7 @@ game_init :: proc() {
   gameArena : vmem.Arena
   allocator := vmem.arena_allocator(&gameArena)
 
+  g.rects = make([dynamic]rl.Rectangle, 0, 1024, allocator)
   loadSettings(allocator)
 
   g.uiCtx.button.rectangles = make([]rl.Rectangle, len(ButtonId), allocator) 
