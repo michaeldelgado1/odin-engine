@@ -67,6 +67,7 @@ ButtonId :: enum int {
   None,
   ExitYes,
   ExitNo,
+  DebugHandle,
 }
 
 Game_Memory :: struct {
@@ -327,12 +328,17 @@ drawDebugOverlay :: proc() {
   bgColor := rl.DARKBLUE
   rl.DrawRectangleRec(rects.rectFromPosAndDims({ 0, 0 }, { winWidth, winHeight }), bgColor)
 
-  pos : rl.Vector2 = { 2, 2 }
-  boundingBox := rects.rectFromPosAndDims(pos, { 220, 0 })
-  testString := "This is a message that fits within a text box"
-  height := drawWrappedText(testString, pos, boundingBox.width, g.uiCtx.font, 13, rl.WHITE)
-  boundingBox.height = height
-  rl.DrawRectangleLinesEx(boundingBox, .5, rl.YELLOW)
+  // pos : rl.Vector2 = { 2, 2 }
+  // boundingBox := rects.rectFromPosAndDims(pos, { 220, 0 })
+  // testString := "This is a message that fits within a text box"
+  // height := drawWrappedText(testString, pos, boundingBox.width, g.uiCtx.font, 13, rl.WHITE)
+  // boundingBox.height = height
+  // rl.DrawRectangleLinesEx(boundingBox, .5, rl.YELLOW)
+  if drawHoldButton(.DebugHandle, "", &g.uiCtx) {
+    curY := g.uiCtx.button.rectangles[ButtonId.DebugHandle].y
+    g.uiCtx.button.rectangles[ButtonId.DebugHandle] = rects.centerRectToPoint(g.screenMouse, { g.uiCtx.button.rectangles[ButtonId.DebugHandle].width, g.uiCtx.button.rectangles[ButtonId.DebugHandle].height })
+    g.uiCtx.button.rectangles[ButtonId.DebugHandle].y = curY
+  }
 }
 
 MaxRects :: 1024
@@ -390,8 +396,16 @@ createExitButtonRects :: proc(ctx: ^ui.UiContext, allocator := context.allocator
     height = noDims.y + doublePad,
   }
 
+  handlePos : rl.Rectangle = {
+    g.uiCtx.screenDims.x / 2,
+    g.uiCtx.screenDims.y / 2,
+    doublePad,
+    doublePad * 2,
+  }
+
   ctx.button.rectangles[ButtonId.ExitYes] = yesButton
   ctx.button.rectangles[ButtonId.ExitNo] = noButton
+  ctx.button.rectangles[ButtonId.DebugHandle] = handlePos
 }
 
 game_camera :: proc() -> rl.Camera2D {
@@ -447,6 +461,7 @@ game_init :: proc() {
     editorState = {
       currentOverlay = .None,
     },
+    uiCam = ui_camera(),
     exitOverlayState = {
       heading = {
         pos = { 30, 30 },
@@ -462,6 +477,11 @@ game_init :: proc() {
         padding = 3,
       },
     },
+  }
+
+  g.uiCtx. screenDims = {
+    f32(rl.GetScreenWidth())/g.uiCam.zoom,
+    f32(rl.GetScreenHeight())/g.uiCam.zoom,
   }
 
   gameArena : vmem.Arena

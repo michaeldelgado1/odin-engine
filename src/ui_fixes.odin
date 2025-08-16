@@ -11,3 +11,7 @@ drawButton :: proc(buttonId: ButtonId, label: cstring, ctx: ^ui.UiContext) -> bo
   return ui.drawButton(int(buttonId), label, ctx)
 }
 
+drawHoldButton :: proc(buttonId: ButtonId, label: cstring, ctx: ^ui.UiContext) -> bool {
+  return ui.drawHoldButton(int(buttonId), label, ctx)
+}
+
